@@ -1,11 +1,90 @@
 <script setup>
-import { ref } from 'vue';
-// Modal and Form State
-const open = ref(false);
-const isModalOpen = ref(false);
-const dropdownOpen = ref(false);
-const selectedComponent = ref("");
+import { ref, computed, onMounted, watch } from 'vue'
+import axios from 'axios'
+import PeopleStudentCallLog from '../modals/PeopleStudentCallLog.vue'
+import StudentProfile from '../modals/StudentProfile.vue'
+
+// States
+const open = ref(false)
+const isModalOpen = ref(false)
+
+const students = ref([])
+const tableData = ref([])
+const fullList = ref([])
+const rowsPerPage = ref(10)
+const currentPage = ref(1)
+const searchTerm = ref('')
+
+// Computed
+const totalPages = computed(() => Math.ceil(tableData.value.length / rowsPerPage.value))
+
+// Methods
+const paginateData = () => {
+  const start = (currentPage.value - 1) * rowsPerPage.value
+  const end = start + rowsPerPage.value
+  students.value = tableData.value.slice(start, end)
+}
+
+const updatePagination = () => {
+  currentPage.value = 1
+  paginateData()
+}
+
+const goToPage = () => {
+  if (currentPage.value < 1) currentPage.value = 1
+  if (currentPage.value > totalPages.value) currentPage.value = totalPages.value
+  paginateData()
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    paginateData()
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    paginateData()
+  }
+}
+
+// Watch searchTerm for live filtering
+watch(searchTerm, (value) => {
+  if (!value.trim()) {
+    tableData.value = fullList.value
+  } else {
+    const term = value.toLowerCase()
+    tableData.value = fullList.value.filter(student =>
+      `${student.first_name} ${student.last_name}`.toLowerCase().includes(term) ||
+      student.city_town?.toLowerCase().includes(term) ||
+      student.gender?.toLowerCase().includes(term) ||
+      student.parent_name?.toLowerCase().includes(term) ||
+      student.phone_number1?.toLowerCase().includes(term)
+    )
+  }
+  updatePagination()
+})
+
+// Fetch data on mount
+onMounted(() => {
+  const token = localStorage.getItem('access_token')
+  axios.get('http://localhost:8000/api/students/', {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).then((response) => {
+    fullList.value = response.data
+    tableData.value = response.data
+    paginateData()
+  }).catch((error) => {
+    console.error('Error fetching students:', error.response?.data || error.message)
+  })
+}
+)
 </script>
+
 <template>
   <div class="p-4 bg-gray-100 rounded-lg">
 
@@ -20,9 +99,13 @@ const selectedComponent = ref("");
                 d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
             </svg>
           </div>
-          <input type="text" id="table-search"
+          <input
+            v-model="searchTerm"
+            type="text"
+            id="table-search"
             class="py-2 block ps-12 text-sm text-[#22305C] border border-[#939BAD] rounded-lg w-60 bg-[#FFFFFF]"
-            placeholder="Search">
+            placeholder="Search by name, city, parent..."
+          />
         </div>
       </div>
       <div class="inline-flex ml-3 overflow-hidden rounded-lg min-w-max">
@@ -165,82 +248,6 @@ const selectedComponent = ref("");
 
 </template>
 
-<script>
-import RegularStudentProfile from "../profilecomponents/RegularStudentProfile.vue";
-import PeopleStudentCallLog from '../modals/PeopleStudentCallLog.vue';
-import StudentProfile from '../modals/StudentProfile.vue';
-import axios from 'axios';
-export default {
-  components: {
-    RegularStudentProfile,
-    PeopleStudentCallLog,
-    StudentProfile,
-  },
-  data() {
-    return {
-      activeTab: "regular",
-      rowsPerPage: 10,
-      currentPage: 1,
-      students: [],
-      tableData: [],
-      selectedComponent: "",
-    };
-  },
-  computed: {
-    totalPages() {
-      return Math.ceil(this.tableData.length / this.rowsPerPage);
-    },
-  },
-  methods: {
-    updatePagination() {
-      this.currentPage = 1;
-      this.paginateData();
-    },
-    paginateData() {
-      if (!Array.isArray(this.tableData)) return; // ✅ Guard clause
-      const start = (this.currentPage - 1) * this.rowsPerPage;
-      const end = start + this.rowsPerPage;
-      this.students = this.tableData.slice(start, end);
-    },
-    goToPage() {
-      if (this.currentPage < 1) this.currentPage = 1;
-      if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
-      this.paginateData();
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-        this.paginateData();
-      }
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-        this.paginateData();
-      }
-    },
-  },
-  watch: {
-    tableData: {
-      handler() {
-        this.paginateData();
-      },
-      immediate: true,
-    },
-  },
-  mounted() {
-    axios.get('http://localhost:8000/api/students/')
-      .then(response => {
-        this.tableData = response.data; // ✅ Assign to tableData
-        this.paginateData();
-      })
-      .catch(error => {
-        console.error(error);
-      });
-  },
-};
-
-</script>
 
 <style>
 .text-blue-500 {

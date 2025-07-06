@@ -1,12 +1,85 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue'
+import axios from 'axios'
+import TeacherProfile from "../modals/TeacherProfile.vue"
+import PeopleTeacherCallLog from '../modals/PeopleTeacherCallLog.vue'
+import NewTeacherModal from '../modals/NewTeacherModal.vue'
+
+// Modals
+const open = ref(false)
+const openteacher = ref(false)
+const isModalOpen = ref(false)
+
+// Data
+const tableData = ref([])
+const paginatedData = ref([])
+const rowsPerPage = ref(10)
+const currentPage = ref(1)
+const searchTerm = ref('')
+const fullList = ref([])
 
 
-// Modal and Form State
-const open = ref(false);
-const openteacher = ref(false);
-const isModalOpen = ref(false);
-const openavailability = ref(false);
+
+
+const filteredData = computed(() => {
+  const term = searchTerm.value.toLowerCase()
+  return tableData.value.filter(row =>
+    Object.values(row).some(val =>
+      String(val).toLowerCase().includes(term)
+    )
+  )
+})
+
+const totalPages = computed(() =>
+  Math.ceil(filteredData.value.length / rowsPerPage.value)
+)
+
+const paginateData = () => {
+  const start = (currentPage.value - 1) * rowsPerPage.value
+  const end = start + rowsPerPage.value
+  paginatedData.value = filteredData.value.slice(start, end)
+}
+
+const goToPage = () => {
+  if (currentPage.value < 1) currentPage.value = 1
+  if (currentPage.value > totalPages.value) currentPage.value = totalPages.value
+  paginateData()
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    paginateData()
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    paginateData()
+  }
+}
+
+watch([searchTerm, rowsPerPage], () => {
+  currentPage.value = 1
+  paginateData()
+})
+
+onMounted(() => {
+  const token = localStorage.getItem('access_token')
+  axios.get('http://localhost:8000/api/teachers/', {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).then((response) => {
+    fullList.value = response.data
+    tableData.value = response.data
+    paginateData()
+  }).catch((error) => {
+    console.error('Error fetching students:', error.response?.data || error.message)
+  })
+}
+)
 </script>
 
 <template>
@@ -23,9 +96,9 @@ const openavailability = ref(false);
                 d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
             </svg>
           </div>
-          <input type="text" id="table-search"
-            class="py-2 block ps-10 text-sm text-[#22305C] border border-[#939BAD] rounded-lg w-60 bg-[#FFFFFF] focus:ring-[#3D548D] focus:border-[#D1D8E7]"
-            placeholder="Search">
+          <input type="text" v-model="searchTerm"
+            class="py-2 ps-10 text-sm text-[#22305C] border border-[#939BAD] rounded-lg w-60 bg-[#FFFFFF] focus:ring-[#3D548D] focus:border-[#D1D8E7]"
+            placeholder="Search" />
         </div>
       </div>
 
@@ -48,9 +121,11 @@ const openavailability = ref(false);
           <thead>
             <tr class="bg-[#F0F2F7] text-center">
               <th class="px-2 py-2 text-[#22305C] font-medium">TID</th>
-              <th class="px-2 py-2 text-[#22305C] font-medium">Teacher Name</th>
-              <th class="px-2 py-2 text-[#22305C] font-medium">Parten Name 1</th>
-              <th class="px-2 py-2 text-[#22305C] font-medium">Phone Number 2</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">Last Name</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">First Name</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">email</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">Phone Number</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">hourly_rate</th>
               <th class="px-2 py-2 text-[#22305C] font-medium">Birth Date</th>
               <th class="px-2 py-2 text-[#22305C] font-medium">Address</th>
               <th class="px-2 py-2 text-[#22305C] font-medium">Action</th>
@@ -59,10 +134,12 @@ const openavailability = ref(false);
           <tbody class="text-[#22305C]">
             <tr v-for="(row, index) in paginatedData" :key="index" class="relative odd:bg-[#F7F8FA]">
               <!-- Table Data -->
-              <td class="px-4 py-2 text-center text-md">{{ row.tid }}</td>
-              <td class="px-4 py-2 text-center text-md">{{ row.teacher_name }}</td>
-              <td class="px-4 py-2 text-center text-md">{{ row.parten_name }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.id }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.last_name }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.first_name }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.email }}</td>
               <td class="px-4 py-2 text-center text-md">{{ row.phone_number }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.hourly_rate }}</td>
               <td class="px-4 py-2 text-center text-md">{{ row.dateofbirth }}</td>
               <td class="px-4 py-2 text-center text-md">{{ row.address }}</td>
               <td class="px-4 py-2 text-center text-md">
@@ -159,7 +236,7 @@ const openavailability = ref(false);
     <NewTeacherModal />
   </div>
 
- 
+
 
   <!--  Teacher Profile -->
   <div>
@@ -186,78 +263,6 @@ const openavailability = ref(false);
 
 </template>
 
-<script>
-import TeacherProfile from "../modals/TeacherProfile.vue";
-import PeopleTeacherCallLog from '../modals/PeopleTeacherCallLog.vue';
-import NewTeacherModal from '../modals/NewTeacherModal.vue';
-export default {
-  components: {
-    TeacherProfile,
-    PeopleTeacherCallLog,
-    NewTeacherModal,
-  },
-  data() {
-    return {
-      activeTab: "teacher",
-      tableData: [
-        { tid: "TID", teacher_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { tid: "TID", teacher_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { tid: "TID", teacher_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { tid: "TID", teacher_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { tid: "TID", teacher_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { tid: "TID", teacher_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-      ],
-      rowsPerPage: 10,
-      currentPage: 1,
-      paginatedData: [],
-    };
-  },
-  computed: {
-    totalPages() {
-      return Math.ceil(this.tableData.length / this.rowsPerPage);
-    },
-  },
-  methods: {
-    updatePagination() {
-      this.currentPage = 1; // Reset to the first page
-      this.paginateData();
-    },
-    paginateData() {
-      const start = (this.currentPage - 1) * this.rowsPerPage;
-      const end = start + this.rowsPerPage;
-      this.paginatedData = this.tableData.slice(start, end);
-    },
-    goToPage() {
-      if (this.currentPage < 1) this.currentPage = 1;
-      if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
-      this.paginateData();
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-        this.paginateData();
-      }
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-        this.paginateData();
-      }
-    },
-  },
-  watch: {
-    tableData: {
-      handler() {
-        this.paginateData();
-      },
-      immediate: true,
-    },
-  },
-  mounted() {
-    this.paginateData();
-  },
-};
-</script>
 
 <style>
 .text-blue-500 {

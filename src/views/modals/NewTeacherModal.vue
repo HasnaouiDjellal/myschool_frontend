@@ -34,10 +34,10 @@
                         <!-- Row 1 -->
                     </div>
                     <div class="grid grid-cols-1 pr-3 pl-3 md:grid-cols-3 gap-4 ">
-                        <input id="First Name" type="text"
+                        <input v-model="teacher.firstName" id="First Name" type="text"
                             class="w-full py-1.5 px-3 border border-b-1 rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
                             placeholder="First Name" required />
-                        <input id="Last Name" type="text"
+                        <input v-model="teacher.lastName" id="Last Name" type="text"
                             class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
                             placeholder="Last Name" required />
 
@@ -170,6 +170,7 @@
 
                 <div class="flex px-4 py-4 space-x-4 overflow-x-auto bg-[#E8EBF2] rounded-md justify-end">
                     <button
+                    @click.prevent="submitTeacher"
                         class="px-4 py-2 bg-[#3D548D] font-medium tracking-wide text-white transition-colors duration-200 transform rounded-lg hover:bg-indigo-500 focus:outline-none focus:bg-indigo-500">
                         Save
                     </button>
@@ -184,6 +185,7 @@
     </div>
 </template>
 <script>
+import axios from 'axios';
 export default {
   data() {
     return {
@@ -196,6 +198,10 @@ export default {
       tutorings: [
         { tutoring: '' }
       ],
+      teacher: {
+        firstName: '',
+        lastName: '',},
+
     };
   },
   methods: {
@@ -214,6 +220,24 @@ export default {
         this.tutorings.push({ tutoring: '' });
       }
     },
+    async submitTeacher() {
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await axios.post('http://localhost:8000/api/teachers/', {
+        first_name: this.teacher.firstName,
+        last_name: this.teacher.lastName,
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      alert('Teacher added successfully!')
+      this.$emit('teacher-added') // optional: emit to parent to refresh
+    } catch (error) {
+      console.error('Error saving teacher:', error.response?.data || error.message)
+      alert('Failed to save teacher')
+    }
+},
   }
 
 };
