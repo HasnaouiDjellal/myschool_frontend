@@ -70,7 +70,7 @@ watch(searchTerm, (value) => {
 // Fetch data on mount
 onMounted(() => {
   const token = localStorage.getItem('access_token')
-  axios.get('http://localhost:8000/api/students/', {
+  axios.get('http://127.0.0.1:8000/api/students/', {
     headers: {
       Authorization: `Bearer ${token}`
     }
@@ -138,7 +138,7 @@ onMounted(() => {
           <tbody class="text-[#22305C]">
             <tr v-for="(row) in students" class="relative odd:bg-[#F7F8FA]">
               <!-- Table Data -->
-              <td class="px-4 py-2 text-center text-md ">9</td>
+              <td class="px-4 py-2 text-center text-md ">{{ row.id }}</td>
               <td class="px-4 py-2 text-center text-md">{{ row.first_name }}</td>
               <td class="px-4 py-2 text-center text-md">{{ row.last_name }}</td>
               <td class="px-4 py-2 text-center text-md">{{ row.date_of_birth }}</td>

@@ -1,12 +1,13 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
+import axios from 'axios';
 
 // Modal and Form State
 const open = ref(false);
 const open2 = ref(false);
+const isSaving = ref(false);
+const classes = ref([]);
 const activeForm = ref('form1');
-
-// Set Active Form Function
 const setActiveForm = (form) => {
   activeForm.value = form;
 };
@@ -14,48 +15,431 @@ const setActiveForm = (form) => {
 // Dropdown State
 const dropdownOpen = ref(false);
 
-// Table State
-const rows = ref([
-  {
-    class: "A1.1 - Fr - Teens",
-    price: "4500 DA",
-    schedule: "WD",
-    time: "Mornings",
-    instructor: "Not Assigned",
-  },
-  {
-    class: "A1.1 - Fr - Teens",
-    price: "4500 DA",
-    schedule: "WD",
-    time: "Mornings",
-    instructor: "Not Assigned",
-  },
-  {
-    class: "A1.1 - En - Teens",
-    price: "4500 DA",
-    schedule: "WD",
-    time: "Mornings",
-    instructor: "Raouf Boukoucha",
-  },
-  {
-    class: "A1.1 - Fr - Teens",
-    price: "4500 DA",
-    schedule: "Wend",
-    time: "Afternoons",
-    instructor: "Arouci Mesia",
-  },
-]);
+// Multi-Selected Rows State
+const selectedRows = ref([]);
 
-// Selected Row State
-const selectedRow = ref(null);
-
-// Row Selection Function
-const selectRow = (index) => {
-  selectedRow.value = index;
+// Toggle row selection
+const toggleRowSelection = (row) => {
+  const index = selectedRows.value.findIndex(r => r.id === row.id);
+  if (index >= 0) {
+    selectedRows.value.splice(index, 1); // Deselect
+  } else {
+    selectedRows.value.push(row); // Select
+  }
 };
 
+// Check if row is selected
+const isRowSelected = (row) => {
+  return selectedRows.value.some(r => r.id === row.id);
+};
 
+// Table search state
+const searchTerm = ref('');
+
+// Preferences State
+const preferences = ref([{ timeId: '', dayId: '', languageId: '', levelId: '' }]);
+const maxPreferences = 3;
+const addPreference = () => {
+  if (preferences.value.length < maxPreferences) {
+    preferences.value.push({ timeId: '', dayId: '', languageId: '', levelId: '' });
+  }
+};
+
+// Personal Info Form State
+const firstName = ref('');
+const lastName = ref('');
+const birthDate = ref('');
+const city = ref('');
+const street = ref('');
+const gender = ref('');
+const phone1 = ref('');
+const phone2 = ref('');
+const parentName = ref('');
+
+// Education Info State
+const levels = ref([]);
+const languages = ref([]);
+const days = ref([]);
+const times = ref([]);
+const selectedLanguageId = ref('');
+const selectedLevelId = ref('');
+const selectedDayId = ref('');
+const selectedTimeId = ref('');
+const institution = ref('');
+const average = ref('');
+
+const token = localStorage.getItem('access_token');
+const headers = { Authorization: `Bearer ${token}` };
+
+// Relationship (Links) constants to match backend model
+const RELATION_OPTIONS = [
+  { value: 'sibling', label: 'Sibling' },
+  { value: 'spouse', label: 'Spouse' },
+  { value: 'parent_of', label: 'Parent Of' },
+  { value: 'child_of', label: 'Child Of' },
+  { value: 'guardian_of', label: 'Guardian Of' },
+  { value: 'relative_of', label: 'Relative Of' },
+];
+const REL_API_URL = 'http://127.0.0.1:8000/api/relationships/';
+// Adjust app labels/models if different in your backend
+const CONTENT_TYPE_BY_TYPE = {
+  student: 'students.student',
+  teacher: 'teachers.teacher',
+  staff: 'staffs.staff',
+};
+
+// Shared helpers
+const toMoneyString = (val) => {
+  const num = Number(val);
+  if (Number.isFinite(num)) {
+    return num.toFixed(2);
+  }
+  return '0.00';
+};
+
+// Fees & Discounts
+const registrationFeeDue = ref('');
+const registrationFeePaid = ref('');
+const registrationFeeExempt = ref(false);
+const registrationFeeReason = ref('');
+const classFeeDue = ref('');
+const discountPercentage = ref('');
+
+const registrationFeeRemaining = computed(() => {
+  if (registrationFeeExempt.value) return toMoneyString(0);
+  const due = Number(registrationFeeDue.value) || 0;
+  const paid = Number(registrationFeePaid.value) || 0;
+  const remaining = Math.max(due - paid, 0);
+  return toMoneyString(remaining);
+});
+
+watch([registrationFeeExempt, registrationFeeDue, registrationFeePaid], () => {
+  if (registrationFeeExempt.value) {
+    registrationFeeDue.value = '0';
+    registrationFeePaid.value = '0';
+    return;
+  }
+  const due = Number(registrationFeeDue.value);
+  let paid = Number(registrationFeePaid.value);
+  if (!Number.isFinite(paid) || paid < 0) paid = 0;
+  if (!Number.isFinite(due) || due < 0) {
+    registrationFeeDue.value = '0';
+  } else if (paid > due) {
+    registrationFeePaid.value = String(due);
+  }
+});
+
+async function fetchClasses() {
+  try {
+    const res = await axios.get('http://127.0.0.1:8000/api/classes/', { headers });
+    classes.value = res.data;
+  } catch (err) {
+    console.error('Error fetching classes:', err);
+  }
+}
+
+// Filtered classes based on search term
+const filteredClasses = computed(() => {
+  const term = (searchTerm.value || '').toLowerCase().trim();
+  if (!term) return classes.value;
+  return classes.value.filter((row) => {
+    try {
+      return Object.values(row).some((val) =>
+        val && String(val).toLowerCase().includes(term)
+      );
+    } catch (e) {
+      return false;
+    }
+  });
+});
+
+async function fetchLevels() {
+  try {
+    const res = await axios.get('http://127.0.0.1:8000/api/levels/', { headers });
+    levels.value = res.data;
+  } catch (err) {
+    console.error('Error fetching levels:', err);
+  }
+}
+async function fetchLanguages() {
+  try {
+    const res = await axios.get('http://127.0.0.1:8000/api/languages/', { headers });
+    languages.value = res.data;
+  } catch (err) {
+    console.error('Error fetching languages:', err);
+  }
+}
+async function fetchDays() {
+  try {
+    const res = await axios.get('http://127.0.0.1:8000/api/days/', { headers });
+    days.value = res.data;
+  } catch (err) {
+    console.error('Error fetching days:', err);
+  }
+}
+async function fetchTimes() {
+  try {
+    const res = await axios.get('http://127.0.0.1:8000/api/times/', { headers });
+    times.value = res.data;
+  } catch (err) {
+    console.error('Error fetching times:', err);
+  }
+}
+
+async function postStudentInfo() {
+  try {
+    const payload = {
+      first_name: firstName.value,
+      last_name: lastName.value,
+      date_of_birth: birthDate.value,
+      city_town: city.value,
+      street: street.value,
+      gender: gender.value,
+      phone_number1: phone1.value,
+      phone_number2: phone2.value,
+      parent_name: parentName.value
+    };
+    const res = await axios.post('http://127.0.0.1:8000/api/students/', payload, { headers });
+    return res.data;
+  } catch (err) {
+    console.error('Error posting student info:', err?.response?.data || err?.message || err);
+    throw err;
+  }
+}
+
+async function postEducationInfo(studentId) {
+  try {
+    const payload = {
+      level: selectedLevelId.value,
+      institution: institution.value,
+      average: average.value || null,
+      student: studentId
+    };
+    const res = await axios.post('http://127.0.0.1:8000/api/education/', payload, { headers });
+    return res.data;
+  } catch (err) {
+    console.error('Error posting education info:', err?.response?.data || err?.message || err);
+    throw err;
+  }
+}
+
+async function postPreferences(studentId) {
+  try {
+    const toNumber = (value) => (value === '' || value === null || value === undefined ? null : Number(value));
+
+    const dayIds = preferences.value
+      .map(p => toNumber(p.dayId))
+      .filter(v => v !== null);
+    const timeIds = preferences.value
+      .map(p => toNumber(p.timeId))
+      .filter(v => v !== null);
+    const languageIds = preferences.value
+      .map(p => toNumber(p.languageId))
+      .filter(v => v !== null);
+    const levelIds = preferences.value
+      .map(p => toNumber(p.levelId))
+      .filter(v => v !== null);
+
+    const payload = {
+      student: studentId,
+      day_ids: dayIds,
+      time_ids: timeIds,
+      language_ids: languageIds,
+      level_ids: levelIds
+    };
+    const res = await axios.post('http://127.0.0.1:8000/api/preferences/', payload, { headers });
+    return res.data;
+  } catch (err) {
+    console.error('Error posting preferences:', err?.response?.data || err?.message || err);
+    throw err;
+  }
+}
+
+async function saveStudentAndEducation() {
+  if (isSaving.value) return;
+  isSaving.value = true;
+  let createdStudentId = null;
+  try {
+    const student = await postStudentInfo();
+    if (!student || !student.id) {
+      throw new Error('Failed to create student');
+    }
+    createdStudentId = student.id;
+    await postEducationInfo(createdStudentId);
+    await postPreferences(createdStudentId);
+    await postLinks(createdStudentId);
+    await createOrUpdateRegistrationFee(createdStudentId);
+    await bulkEnrollSelected(createdStudentId);
+    alert('All data saved successfully');
+  } catch (err) {
+    // Roll back by deleting student, assuming cascading deletes on related models
+    if (createdStudentId) {
+      try {
+        await axios.delete(`http://127.0.0.1:8000/api/students/${createdStudentId}/`, { headers });
+      } catch (rollbackErr) {
+        console.error('Rollback failed:', rollbackErr?.response?.data || rollbackErr?.message || rollbackErr);
+      }
+    }
+    alert('Save failed. No data was saved.');
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+// Links State (integrated with backend EntityRelationship)
+const createEmptyLink = () => ({ targetType: '', targetId: null, displayName: '', relation: '' });
+const links = ref([createEmptyLink()]);
+const linkResults = ref({ 0: [] }); // search suggestions per link index
+
+const addLink = () => {
+  if (links.value.length < 3) {
+    links.value.push(createEmptyLink());
+    linkResults.value[links.value.length - 1] = [];
+  }
+};
+
+async function searchLinkCandidates(index, query) {
+  if (!query || query.length < 2) {
+    linkResults.value[index] = [];
+    return;
+  }
+  try {
+    const [studRes, teachRes, staffRes] = await Promise.all([
+      axios.get(`http://127.0.0.1:8000/api/students/?search=${encodeURIComponent(query)}`, { headers }),
+      axios.get(`http://127.0.0.1:8000/api/teachers/?search=${encodeURIComponent(query)}`, { headers }),
+      axios.get(`http://127.0.0.1:8000/api/staffs/?search=${encodeURIComponent(query)}`, { headers }),
+    ]);
+    const toItems = (arr, type) => (arr || []).map(x => ({
+      type,
+      id: x.id,
+      name: `${x.first_name || x.name || ''} ${x.last_name || ''}`.trim() || (x.full_name || '').trim() || `#${x.id}`,
+    }));
+    linkResults.value[index] = [
+      ...toItems(studRes.data, 'student'),
+      ...toItems(teachRes.data, 'teacher'),
+      ...toItems(staffRes.data, 'staff'),
+    ];
+  } catch (e) {
+    console.error('Search people failed', e);
+    linkResults.value[index] = [];
+  }
+}
+
+function selectLinkCandidate(index, item) {
+  const link = links.value[index];
+  link.targetType = item.type;
+  link.targetId = item.id;
+  link.displayName = item.name;
+  linkResults.value[index] = [];
+}
+
+async function postLinks(sourceStudentId) {
+  try {
+    // Deduplicate by targetType-targetId-relation to avoid unique violations
+    const seen = new Set();
+    for (const link of links.value) {
+      if (!link.relation || !link.targetType || !link.targetId) continue;
+      const key = `${link.targetType}|${link.targetId}|${link.relation}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const payloadsToTry = [
+        // A) ContentType slug fields (common DRF pattern)
+        {
+          source_content_type: CONTENT_TYPE_BY_TYPE.student,
+          source_object_id: sourceStudentId,
+          target_content_type: CONTENT_TYPE_BY_TYPE[link.targetType],
+          target_object_id: link.targetId,
+          relation: link.relation,
+        },
+        // B) Simple type names (backend maps to content types server-side)
+        {
+          source_type: 'student',
+          source_id: sourceStudentId,
+          target_type: link.targetType,
+          target_id: link.targetId,
+          relation: link.relation,
+        },
+        // C) Original field names we used earlier
+        {
+          source_model: 'student',
+          source_id: sourceStudentId,
+          target_model: link.targetType,
+          target_id: link.targetId,
+          relation: link.relation,
+        },
+      ];
+
+      let success = false;
+      let lastErr = null;
+      for (const p of payloadsToTry) {
+        try {
+          await axios.post(REL_API_URL, p, { headers });
+          success = true;
+          break;
+        } catch (e) {
+          lastErr = e;
+          // If server says duplicate/validation error, stop trying other shapes for this link
+          if (!e?.response) break;
+          const status = e.response.status;
+          if (status === 409) break;
+          if (status >= 500) break;
+        }
+      }
+      if (!success) throw lastErr || new Error('Unknown error creating relationship');
+    }
+  } catch (err) {
+    const server = err?.response?.data;
+    console.error('Error posting links:', server || err?.message || err);
+    throw err;
+  }
+}
+
+onMounted(() => {
+  fetchClasses();
+  fetchLevels();
+  fetchLanguages();
+  fetchDays();
+  fetchTimes();
+});
+
+// Bulk enroll selected classes for a student
+async function bulkEnrollSelected(studentId) {
+  try {
+    const classIds = selectedRows.value.map((c) => c.id);
+    if (classIds.length === 0) return; // nothing selected
+
+    const payload = {
+      student: studentId,
+      class_ids: classIds,
+      registration_fee: toMoneyString(registrationFeeDue.value || 0),
+      course_fee: toMoneyString(classFeeDue.value || 0),
+      discount_percentage: Number(discountPercentage.value || 0)
+    };
+
+    await axios.post('http://127.0.0.1:8000/api/enrollments/bulk-enroll/', payload, { headers });
+  } catch (err) {
+    console.error('Error during bulk enrollment:', err?.response?.data || err?.message || err);
+    throw err;
+  }
+}
+
+// Create one-time registration fee for student
+async function createOrUpdateRegistrationFee(studentId) {
+  try {
+    const payload = {
+      student: studentId,
+      amount_due: registrationFeeExempt.value ? toMoneyString(0) : toMoneyString(registrationFeeDue.value || 0),
+      amount_paid: registrationFeeExempt.value ? toMoneyString(0) : toMoneyString(registrationFeePaid.value || 0),
+      is_exempted: Boolean(registrationFeeExempt.value)
+    };
+    await axios.post('http://127.0.0.1:8000/api/registration-fees/', payload, { headers });
+  } catch (err) {
+    console.error('Error creating/updating registration fee:', err?.response?.data || err?.message || err);
+    throw err;
+  }
+}
 </script>
+
 
 <template>
   <div class="space-y-4 shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)] text-[#22305C] rounded-lg">
@@ -66,41 +450,41 @@ const selectRow = (index) => {
       <!-- Row 1 -->
     </div>
     <div class="grid grid-cols-1 pr-3 pl-3 md:grid-cols-3 gap-4 ">
-      <input id="First Name" type="text"
+      <input id="First Name" type="text" v-model="firstName"
         class="w-full py-1.5 px-3 border border-b-1 rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
         placeholder="First Name" required />
-      <input id="Last Name" type="text"
+      <input id="Last Name" type="text" v-model="lastName"
         class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" placeholder="Last Name"
         required />
 
-      <input id="date" type="date"
+      <input id="date" type="date" v-model="birthDate"
         class="w-full py-1.5 px-3 border text-gray-600 rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
         required />
     </div>
     <!-- Row 2 -->
     <div class="grid grid-cols-1 pr-3 pl-3 md:grid-cols-3 gap-4">
-      <input id="city" type="text"
+      <input id="city" type="text" v-model="city"
         class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" placeholder="City/Town"
         required />
-      <input id="street" type="text"
+      <input id="street" type="text" v-model="street"
         class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" placeholder="Street"
         required />
-      <select id="gender"
+      <select id="gender" v-model="gender"
         class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
         <option value="" disabled selected>Select Gender</option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
       </select>
     </div>
     <!-- Row 3 -->
     <div class="grid grid-cols-1 pr-3 pl-3 pb-3 md:grid-cols-3 gap-4">
-      <input id="phone1" type="text"
+      <input id="phone1" type="text" v-model="phone1"
         class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
         placeholder="Phone Number 1" required />
-      <input id="phone2" type="text"
+      <input id="phone2" type="text" v-model="phone2"
         class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
         placeholder="Phone Number 2" required />
-      <input id="parentname" type="text"
+      <input id="parentname" type="text" v-model="parentName"
         class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
         placeholder="Parent Name" required />
     </div>
@@ -114,18 +498,15 @@ const selectRow = (index) => {
     </div>
     <div class="grid grid-cols-1 pr-3 pl-3 pb-3 md:grid-cols-3 gap-4">
       <!-- Row 1 -->
-      <select id="gender"
+      <select id="level" v-model="selectedLevelId"
         class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
         <option value="" disabled selected>Select Level</option>
-        <option value="A1">A1</option>
-        <option value="A2">A2</option>
-        <option value="B1">A1</option>
-        <option value="B2">A2</option>
+        <option v-for="lvl in levels" :key="lvl.id" :value="lvl.id">{{ lvl.level_name }}</option>
       </select>
-      <input id="institution" type="text"
+      <input id="institution" type="text" v-model="institution"
         class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
         placeholder="Institution" required />
-      <input id="average" type="text"
+      <input id="average" type="text" v-model="average"
         class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" placeholder="Average"
         required />
     </div>
@@ -144,35 +525,28 @@ const selectRow = (index) => {
     <!-- Dynamic Preference Blocks -->
     <div v-for="(preference, index) in preferences" :key="index"
       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 px-4 pb-2">
-      <select v-model="preference.time"
-        class="w-full py-2 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
-        <option value="" disabled selected>Time Preferences</option>
-        <option value="time 1">Time 1</option>
-        <option value="time 2">Time 2</option>
+      <select id="times" v-model="preference.timeId"
+        class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
+        <option value="" disabled selected>Select Time</option>
+        <option v-for="tm in times" :key="tm.id" :value="tm.id">{{ tm.time_name }}</option>
       </select>
 
-      <select v-model="preference.days"
-        class="w-full py-2 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
-        <option value="" disabled selected>Days Preferences</option>
-        <option value="day1">Day 1</option>
-        <option value="day2">Day 2</option>
+      <select id="days" v-model="preference.dayId"
+        class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
+        <option value="" disabled selected>Select Days</option>
+        <option v-for="day in days" :key="day.id" :value="day.id">{{ day.day_name }}</option>
       </select>
 
-      <select v-model="preference.language"
-        class="w-full py-2 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
+      <select id="language" v-model="preference.languageId"
+        class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
         <option value="" disabled selected>Select Language</option>
-        <option value="english">English</option>
-        <option value="Spanish">Spanish</option>
-        <option value="French">French</option>
+        <option v-for="lng in languages" :key="lng.id" :value="lng.id">{{ lng.language_name }}</option>
       </select>
 
-      <select v-model="preference.level"
-        class="w-full py-2 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
-        <option value="" disabled selected>Select Language Level</option>
-        <option value="A1">A1</option>
-        <option value="A2">A2</option>
-        <option value="B1">B1</option>
-        <option value="B2">B2</option>
+      <select id="level" v-model="preference.levelId"
+        class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
+        <option value="" disabled selected>Select Level</option>
+        <option v-for="lvl in levels" :key="lvl.id" :value="lvl.id">{{ lvl.level_name }}</option>
       </select>
     </div>
     <div class="flex justify-end px-4 pb-4">
@@ -186,11 +560,11 @@ const selectRow = (index) => {
     </div>
 
   </div>
-
+  <!-- Suggested Groups -->
   <div class="pb-2 shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)] text-[#22305C] rounded-lg">
     <div class="flex max-w-4xl p-2 bg-[#D1D8E7] rounded-t-lg">
       <h2 class="text-lg font-semibold text-gray-800 mb-1">
-        {{ activeForm === 'form1' ? 'Suggested Groups' : 'Send a Message' }}
+        {{ activeForm === 'form1' ? 'Suggested Classes' : 'Send a Message' }}
       </h2>
       <div class="flex ml-auto">
         <label for="table-search" class="sr-only">Search</label>
@@ -202,7 +576,7 @@ const selectRow = (index) => {
                 d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
             </svg>
           </div>
-          <input type="text" id="table-search"
+          <input v-model="searchTerm" type="text" id="table-search"
             class="py-[5px] block ps-10 text-sm text-[#22305C] border border-[#939BAD] rounded-lg w-80 bg-[#FFFFFF] focus:ring-[#3D548D] focus:border-[#D1D8E7]"
             placeholder="Search">
         </div>
@@ -214,20 +588,17 @@ const selectRow = (index) => {
       <table class="min-w-full border-separate" style="border-spacing: 0 10px;">
         <!-- Scrollable Table Body -->
         <tbody class="overflow-y-auto rounded-lg">
-          <tr v-for="(item, index) in rows" :key="index" @click="selectRow(index)" :class="[
-            'cursor-pointer flex-1 w-full',
-            selectedRow === index ? 'bg-[#939BAD]' : '',
-            'hover:bg-gray-300'
-          ]" class="bg-[#FFFFFF] hover:bg-[#939BAD] text-center text-md text-gray-800">
-            <td class="py-3 px-4 border-l border-t border-b border-[#939BAD] rounded-l-lg">
-              <input type="checkbox" class="form-checkbox " :checked="selectedRow === index" />
+          <tr v-for="cls in filteredClasses" :key="cls.id" :class="{ 'bg-blue-100': isRowSelected(cls) }"
+            @click="toggleRowSelection(cls)" class="bg-[#FFFFFF] hover:bg-[#939BAD] text-center text-md text-gray-800">
+            <td class="py-3 px-3 border-l border-t border-b border-[#939BAD] rounded-l-lg">
+              <input type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" :checked="isRowSelected(cls)"
+                @click.stop="toggleRowSelection(cls)" />
             </td>
-            <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ item.class }}</td>
-            <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ item.price }}</td>
-            <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ item.schedule }}</td>
-            <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ item.time }}</td>
-            <td class="py-2 px-4 border-r border-t border-b border-[#939BAD] rounded-r-lg">{{ item.instructor }}
-            </td>
+            <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ cls.class_name }}</td>
+            <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ cls.price }}</td>
+            <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ cls.days }}</td>
+            <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ cls.time }}</td>
+            <td class="py-2 px-4 border-r border-t border-b border-[#939BAD] rounded-r-lg">{{ cls.teacher_name }}</td>
           </tr>
         </tbody>
       </table>
@@ -236,7 +607,7 @@ const selectRow = (index) => {
 
   </div>
 
-
+  <!-- links -->
   <div class="space-y-4 shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)] text-[#22305C] rounded-lg">
     <!-- Header -->
     <div class="max-w-4xl p-2 bg-[#D1D8E7] rounded-t-lg">
@@ -247,16 +618,28 @@ const selectRow = (index) => {
 
     <!-- Dynamic Rows -->
     <div v-for="(link, index) in links" :key="index" class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4">
-      <input type="text" v-model="link.name"
-        class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" placeholder="Search"
-        required />
-      <select v-model="link.relation"
-        class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
+      <div class="relative">
+        <input
+          type="text"
+          v-model="link.displayName"
+          @input="searchLinkCandidates(index, link.displayName)"
+          class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
+          placeholder="Search person (student/teacher/staff)"
+        />
+        <div v-if="linkResults[index] && linkResults[index].length" class="absolute z-10 mt-1 w-full bg-white border rounded shadow max-h-48 overflow-auto">
+          <div
+            v-for="item in linkResults[index]"
+            :key="item.type + '-' + item.id"
+            @click="selectLinkCandidate(index, item)"
+            class="px-3 py-1 hover:bg-gray-100 cursor-pointer text-sm text-gray-700"
+          >
+            {{ item.name }} — {{ item.type }}
+          </div>
+        </div>
+      </div>
+      <select v-model="link.relation" class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" required>
         <option value="" disabled>Select Relation</option>
-        <option value="father">Father</option>
-        <option value="mother">Mother</option>
-        <option value="sister">Sister</option>
-        <option value="brother">Brother</option>
+        <option v-for="opt in RELATION_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
       </select>
     </div>
 
@@ -284,30 +667,37 @@ const selectRow = (index) => {
 
     <!-- Form Grid -->
     <div class="grid grid-cols-1 md:grid-cols-6 gap-4 px-4 pb-4">
-      <!-- Due Amount Label -->
       <div class="flex items-center md:col-span-1">
         <span class="text-md">Due Amount</span>
       </div>
-
-      <!-- Due Amount Input -->
       <div class="md:col-span-1">
-        <input id="amount" type="text"
+        <input id="reg_due" type="number" v-model="registrationFeeDue" min="0"
+          :disabled="registrationFeeExempt"
           class="w-full py-1.5 px-3 text-center border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
-          placeholder="500 dz" required />
+          placeholder="500.00" required />
       </div>
 
-      <!-- Exempt Radio -->
-      <div class="flex items-center md:col-span-2">
-        <input class="h-5 w-5 border-2 border-[#3D548D] rounded-full checked:bg-[#3D548D] focus:ring-0" type="radio"
-          name="exempt" id="exempt" />
-        <label for="exempt" class="ml-2 text-[#22305C]">Exempt</label>
+      <div class="flex items-center md:col-span-1">
+        <input class="h-5 w-5 border-2 border-[#3D548D] rounded focus:ring-0" type="checkbox"
+          name="registration_exempt" id="registration_exempt" v-model="registrationFeeExempt" />
+        <label for="registration_exempt" class="ml-2 text-[#22305C]">Exempt</label>
       </div>
 
-      <!-- Average Input -->
-      <div class="md:col-span-2">
-        <input id="average" type="text"
-          class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" placeholder="Average"
-          required />
+      <div class="md:col-span-1">
+        <input id="reg_paid" type="number" v-model="registrationFeePaid" min="0"
+          :disabled="registrationFeeExempt"
+          class="w-full py-1.5 px-3 text-center border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
+          placeholder="Amount Paid" />
+      </div>
+      <div class="md:col-span-1">
+        <input id="reg_remaining" type="text" :value="registrationFeeRemaining" disabled
+          class="w-full py-1.5 px-3 text-center border rounded-lg bg-gray-100" placeholder="Remaining" />
+      </div>
+      <div class="md:col-span-1">
+        <input id="reg_reason" type="text" v-model="registrationFeeReason"
+          :disabled="!registrationFeeExempt"
+          class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
+          placeholder="Reason for exemption (optional)" />
       </div>
     </div>
   </div>
@@ -322,7 +712,7 @@ const selectRow = (index) => {
     </div>
     <div class="grid grid-cols-5 pr-3 pl-3 pb-3 md:grid-cols-5 gap-4">
       <!-- Row 1 -->
-      <input id="discountpercentage" type="text"
+      <input id="discountpercentage" type="number" v-model="discountPercentage" min="0" max="100"
         class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
         placeholder="Enter Percentage" required />
       <select id="discountduration"
@@ -374,7 +764,7 @@ const selectRow = (index) => {
 
       <span class="text-[#22305C] text-md py-1.5 px-2 col-start-1 col-end-2">Due Amount</span>
 
-      <input id="amount2" type="text"
+      <input id="amount2" type="number" v-model="classFeeDue" min="0"
         class="w-full py-1.5 px-2  border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]" placeholder="4500 DZD"
         required />
       <input id="amount paid" type="text"
@@ -406,49 +796,13 @@ const selectRow = (index) => {
       Back
     </button>
     <button
-      class="px-4 py-2 bg-[#3D548D] font-medium tracking-wide text-white transition-colors duration-200 transform rounded-lg hover:bg-indigo-500 focus:outline-none focus:bg-indigo-500">
-      Save and Print
+      @click="saveStudentAndEducation"
+      :disabled="isSaving"
+      class="px-4 py-2 bg-[#3D548D] font-medium tracking-wide text-white transition-colors duration-200 transform rounded-lg hover:bg-indigo-500 focus:outline-none focus:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+      {{ isSaving ? 'Saving...' : 'Save and Print' }}
     </button>
 
   </div>
 
 
 </template>
-<script>
-export default {
-  data() {
-    return {
-      preferences: [
-        {
-          time: '',
-          days: '',
-          language: '',
-          level: '',
-        },
-      ],
-      links: [
-        { name: '', relation: '' }
-      ],
-      maxPreferences: 3,
-    };
-  },
-  methods: {
-    addPreference() {
-      if (this.preferences.length < this.maxPreferences) {
-        this.preferences.push({
-          time: '',
-          days: '',
-          language: '',
-          level: '',
-        });
-      }
-    },
-    addLink() {
-      if (this.links.length < 3) {
-        this.links.push({ name: '', relation: '' });
-      }
-    },
-  }
-
-};
-</script>

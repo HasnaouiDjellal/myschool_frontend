@@ -1,6 +1,38 @@
 <script setup>
-import { ref } from 'vue';
-const updatelanguage = ref(false);
+import { defineProps, defineEmits, ref, onMounted } from 'vue'
+import axios from 'axios'
+
+const props = defineProps({
+  id: { type: Number, required: true }
+})
+const emit = defineEmits(['updated', 'close'])
+
+const name = ref('')
+const token = localStorage.getItem('access_token')
+const headers = { Authorization: `Bearer ${token}` }
+
+// Fetch language details when opened
+onMounted(async () => {
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    console.error('No token found, redirecting to login...')
+    return
+  }
+  const headers = { Authorization: `Bearer ${token}` }
+  const res = await axios.get(`http://127.0.0.1:8000/api/languages/${props.id}/`, { headers })
+  name.value = res.data.language_name
+})
+
+
+async function updateLanguage() {
+  await axios.patch(`http://127.0.0.1:8000/api/languages/${props.id}/`, 
+    { language_name: name.value }, 
+    { headers }
+  )
+  emit('updated')
+  emit('close')
+}
+
 </script>
 <template>
 
@@ -12,7 +44,7 @@ const updatelanguage = ref(false);
 
       <h2 id="newClassTitle" class="self-stretch my-auto">Update language</h2>
       <!-- Close Button -->
-      <button class="text-gray-500 hover:text-gray-700 focus:outline-none" @click="updatelanguage = false">
+      <button class="text-gray-500 hover:text-gray-700 focus:outline-none" @click="emit('close')">
         <svg class="w-8 h-8" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
             d="M16.7171 14.9494C16.229 14.4612 15.4375 14.4612 14.9494 14.9494C14.4612 15.4375 14.4612 16.229 14.9494 16.7171L18.2321 19.9999L14.9494 23.2828C14.4612 23.7708 14.4612 24.5623 14.9494 25.0504C15.4375 25.5386 16.229 25.5386 16.7171 25.0504L20 21.7678L23.2826 25.0504C23.7708 25.5386 24.5623 25.5386 25.0505 25.0504C25.5386 24.5623 25.5386 23.7708 25.0505 23.2826L21.7676 19.9999L25.0505 16.7171C25.5386 16.229 25.5386 15.4376 25.0505 14.9494C24.5623 14.4612 23.7708 14.4612 23.2826 14.9494L20 18.2321L16.7171 14.9494Z"
@@ -28,8 +60,9 @@ const updatelanguage = ref(false);
     <!-- Language  -->
 
     <div class="flex gap-2 items-center pl-4 mt-4 w-full max-w-sm">
-
-      <input type="text" id="updateLanguage" name="updateLanguage" placeholder="Enter Language"
+      <input v-model="name"
+        type="text"
+        placeholder="Enter Language"
         class=" placeholder-gray-500 gap-2 self-stretch px-2 my-auto bg-white rounded-lg border border-gray-400 border-solid min-h-[40px] min-w-[240px] w-[368px]"
         required />
     </div>
@@ -37,7 +70,7 @@ const updatelanguage = ref(false);
     <div class="flex gap-2 items-center pl-4 mt-4 w-full max-w-sm text-base text-white whitespace-nowrap">
       <!-- Push this div to the right -->
       <div class="flex gap-4 items-center ml-auto my-auto">
-        <button type="submit" class="gap-4 self-stretch px-4 py-2 my-auto rounded-lg bg-slate-600 min-h-[40px]"
+        <button @click="updateLanguage" class="gap-4 self-stretch px-4 py-2 my-auto rounded-lg bg-slate-600 min-h-[40px]"
           style="background-color: #3D548D;" onmouseover="this.style.backgroundColor='#2A4A6A'"
           onmouseout="this.style.backgroundColor='#3D548D'">
           Update

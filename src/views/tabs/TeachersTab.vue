@@ -10,6 +10,9 @@ const open = ref(false)
 const openteacher = ref(false)
 const isModalOpen = ref(false)
 
+// Teacher ID for the modal
+const selectedTeacherId = ref(null)
+
 // Data
 const tableData = ref([])
 const paginatedData = ref([])
@@ -18,8 +21,15 @@ const currentPage = ref(1)
 const searchTerm = ref('')
 const fullList = ref([])
 
+function openModalWithTeacher(id) {
+  selectedTeacherId.value = id
+  isModalOpen.value = true
+}
 
-
+function openCallLog(id) {
+  selectedTeacherId.value = id
+  open.value = true
+}
 
 const filteredData = computed(() => {
   const term = searchTerm.value.toLowerCase()
@@ -67,7 +77,7 @@ watch([searchTerm, rowsPerPage], () => {
 
 onMounted(() => {
   const token = localStorage.getItem('access_token')
-  axios.get('http://localhost:8000/api/teachers/', {
+  axios.get('http://127.0.0.1:8000/api/teachers/', {
     headers: {
       Authorization: `Bearer ${token}`
     }
@@ -84,11 +94,10 @@ onMounted(() => {
 
 <template>
   <div class="p-4 bg-gray-100 rounded-lg">
-
     <div class="relative flex justify-between py-2 overflow-x-auto rounded whitespace-nowrap">
       <div class="inline-flex max-w-md overflow-hidden rounded min-w-max">
         <label for="table-search" class="sr-only">Search</label>
-        <div class="relative">
+        <div class="relative p-1">
           <div class="absolute inset-y-0 rtl:inset-r-0 start-0 flex items-center ps-3 pointer-events-none">
             <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
               fill="none" viewBox="0 0 20 20">
@@ -96,9 +105,9 @@ onMounted(() => {
                 d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
             </svg>
           </div>
-          <input type="text" v-model="searchTerm"
-            class="py-2 ps-10 text-sm text-[#22305C] border border-[#939BAD] rounded-lg w-60 bg-[#FFFFFF] focus:ring-[#3D548D] focus:border-[#D1D8E7]"
-            placeholder="Search" />
+          <input v-model="searchTerm" type="text" id="table-search"
+            class="py-2 block ps-12 text-sm text-[#22305C] border border-[#939BAD] rounded-lg w-60 bg-[#FFFFFF]"
+            placeholder="Search by name, city, parent..." />
         </div>
       </div>
 
@@ -125,9 +134,8 @@ onMounted(() => {
               <th class="px-2 py-2 text-[#22305C] font-medium">First Name</th>
               <th class="px-2 py-2 text-[#22305C] font-medium">email</th>
               <th class="px-2 py-2 text-[#22305C] font-medium">Phone Number</th>
-              <th class="px-2 py-2 text-[#22305C] font-medium">hourly_rate</th>
               <th class="px-2 py-2 text-[#22305C] font-medium">Birth Date</th>
-              <th class="px-2 py-2 text-[#22305C] font-medium">Address</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">Street</th>
               <th class="px-2 py-2 text-[#22305C] font-medium">Action</th>
             </tr>
           </thead>
@@ -139,18 +147,17 @@ onMounted(() => {
               <td class="px-4 py-2 text-center text-md">{{ row.first_name }}</td>
               <td class="px-4 py-2 text-center text-md">{{ row.email }}</td>
               <td class="px-4 py-2 text-center text-md">{{ row.phone_number }}</td>
-              <td class="px-4 py-2 text-center text-md">{{ row.hourly_rate }}</td>
-              <td class="px-4 py-2 text-center text-md">{{ row.dateofbirth }}</td>
-              <td class="px-4 py-2 text-center text-md">{{ row.address }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.birth_date }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.street }}</td>
               <td class="px-4 py-2 text-center text-md">
-                <button class="p-1" @click="isModalOpen = true">
+                <button class="p-1" @click="openModalWithTeacher(row.id)">
                   <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd"
                       d="M22 6C22 3.79086 20.2091 2 18 2H6C3.79086 2 2 3.79086 2 6V18C2 20.2091 3.79086 22 6 22H18C20.2091 22 22 20.2091 22 18V6ZM7.20522 6.79234C8.35737 5.64019 10.3016 5.72778 11.1039 7.16524L11.549 7.96275C12.0335 8.83097 11.8789 9.90936 11.2462 10.6806C11.143 10.8064 11.0195 10.9302 11.0116 11.0926C11.003 11.2684 11.0654 11.6749 11.6952 12.3048C12.3248 12.9344 12.7313 12.997 12.9072 12.9885C13.0698 12.9805 13.1937 12.857 13.3195 12.7537C14.0908 12.1211 15.1691 11.9666 16.0373 12.4511L16.8348 12.8961C18.2722 13.6984 18.3598 15.6427 17.2077 16.7948C16.5914 17.4111 15.772 17.9587 14.809 17.9952C13.382 18.0493 11.0124 17.6807 8.66585 15.3341C6.31927 12.9876 5.95075 10.6181 6.00484 9.19103C6.04135 8.22806 6.58894 7.40862 7.20522 6.79234ZM10.2056 7.66655C9.79483 6.93047 8.69094 6.76136 7.93259 7.51971C7.40088 8.05143 7.0552 8.63832 7.03277 9.22999C6.98766 10.42 7.28147 12.495 9.39322 14.6068C11.505 16.7185 13.5799 17.0124 14.77 16.9672C15.3617 16.9448 15.9486 16.5991 16.4803 16.0674C17.2386 15.309 17.0695 14.2052 16.3335 13.7944L15.536 13.3493C15.0399 13.0725 14.3429 13.167 13.8537 13.6562C13.8056 13.7042 13.4999 13.9895 12.9572 14.0159C12.4015 14.0429 11.729 13.7933 10.9679 13.0321C10.2065 12.2708 9.95694 11.598 9.98415 11.0424C10.0107 10.4995 10.2962 10.1939 10.3439 10.1462C10.8331 9.65699 10.9276 8.96015 10.6507 8.46405L10.2056 7.66655Z"
                       fill="#22305C" />
                   </svg>
                 </button>
-                <button class="p-1" @click="open = true">
+                <button class="p-1" @click="openCallLog(row.id)">
                   <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd"
                       d="M22 6C22 3.79086 20.2091 2 18 2H6C3.79086 2 2 3.79086 2 6V18C2 20.2091 3.79086 22 6 22H18C20.2091 22 22 20.2091 22 18V6ZM7.20522 6.79234C8.35737 5.64019 10.3016 5.72778 11.1039 7.16524L11.549 7.96275C12.0335 8.83097 11.8789 9.90936 11.2462 10.6806C11.143 10.8064 11.0195 10.9302 11.0116 11.0926C11.003 11.2684 11.0654 11.6749 11.6952 12.3048C12.3248 12.9344 12.7313 12.997 12.9072 12.9885C13.0698 12.9805 13.1937 12.857 13.3195 12.7537C14.0908 12.1211 15.1691 11.9666 16.0373 12.4511L16.8348 12.8961C18.2722 13.6984 18.3598 15.6427 17.2077 16.7948C16.5914 17.4111 15.772 17.9587 14.809 17.9952C13.382 18.0493 11.0124 17.6807 8.66585 15.3341C6.31927 12.9876 5.95075 10.6181 6.00484 9.19103C6.04135 8.22806 6.58894 7.40862 7.20522 6.79234ZM10.2056 7.66655C9.79483 6.93047 8.69094 6.76136 7.93259 7.51971C7.40088 8.05143 7.0552 8.63832 7.03277 9.22999C6.98766 10.42 7.28147 12.495 9.39322 14.6068C11.505 16.7185 13.5799 17.0124 14.77 16.9672C15.3617 16.9448 15.9486 16.5991 16.4803 16.0674C17.2386 15.309 17.0695 14.2052 16.3335 13.7944L15.536 13.3493C15.0399 13.0725 14.3429 13.167 13.8537 13.6562C13.8056 13.7042 13.4999 13.9895 12.9572 14.0159C12.4015 14.0429 11.729 13.7933 10.9679 13.0321C10.2065 12.2708 9.95694 11.598 9.98415 11.0424C10.0107 10.4995 10.2962 10.1939 10.3439 10.1462C10.8331 9.65699 10.9276 8.96015 10.6507 8.46405L10.2056 7.66655Z"
@@ -224,7 +231,10 @@ onMounted(() => {
     role="dialog" aria-labelledby="modal-title">
     <!-- Overlay -->
     <div class="absolute w-full h-full filter backdrop-blur-xl " @click="open = false" aria-hidden="true"></div>
-    <PeopleTeacherCallLog />
+    <div class="max-w-8xl mx-auto bg-[#E8EBF2] rounded-lg">
+      <PeopleTeacherCallLog :teacher-id="selectedTeacherId" />
+    </div>
+
   </div>
   <!-- New Teacher Modal -->
   <div
@@ -236,8 +246,6 @@ onMounted(() => {
     <NewTeacherModal />
   </div>
 
-
-
   <!--  Teacher Profile -->
   <div>
     <div
@@ -246,15 +254,12 @@ onMounted(() => {
       <!-- Overlay -->
       <div class="absolute w-full h-full filter backdrop-blur-xl " @click="isModalOpen = false" aria-hidden="true">
       </div>
-
       <!-- Modal Content -->
       <div
         class="relative w-11/12 h-screen max-w-8xl mt-4 bg-[#E8EBF2] rounded-2xl shadow-xl p-2 pl-6 pr-6 overflow-auto">
-
-
         <!-- Modal -->
         <div class="max-w-8xl mx-auto bg-[#E8EBF2] rounded-lg">
-          <TeacherProfile />
+          <TeacherProfile :teacher-id="selectedTeacherId" />
         </div>
 
       </div>

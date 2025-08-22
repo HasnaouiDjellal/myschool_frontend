@@ -1,71 +1,244 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, onMounted, watch } from "vue";
+import axios from "axios";
+import ClassesModal from '../../modals/ClassesModal.vue'
+import NewRegistrationModal from '../../modals/NewRegistrationModal.vue'
 
-// Modal and Form State
-const open = ref(false);
-const opennewclass = ref(false);
-const opennewregistration = ref(false);
-const activeForm = ref('form1');
+// State
+const opennewclass = ref(false)
+const isModalOpen = ref(false)
+const searchTerm = ref("")
+const tableData = ref([])
+const displayedData = ref([])
+const currentPage = ref(1)
+const rowsPerPage = ref(10)
+const languages = ref([])
+const levels = ref([])
+const selectedLanguage = ref('All')
+const selectedAge = ref('All')
+const selectedLevel = ref('All')
 
-// Set Active Form Function
-const setActiveForm = (form) => {
-  activeForm.value = form;
-};
+// Computed
+const totalPages = computed(() => Math.ceil(filteredData.value.length / rowsPerPage.value))
 
-// Dropdown State
-const dropdownOpen = ref(false);
+const filteredData = computed(() => {
+  return tableData.value.filter((row) => {
+    try {
+      // Safe extraction of language and level names
+      const languageName = extractLanguageName(row).toLowerCase()
+      const levelName = extractLevelName(row).toLowerCase()
+      const ageGroup = row.age_group?.toLowerCase() || ''
 
+      // Search across all string fields
+      const matchesSearch = !searchTerm.value ||
+        Object.values(row).some(val =>
+          val && String(val).toLowerCase().includes(searchTerm.value.toLowerCase())
+        )
 
-// Sample Data for Suggested Groups
-const rows = ref([
-  { id: 1, number: "01", name: "مسمي أحمد محمد العروسي", status: "Coming", discount: "10%", duration: "00 class", balance: "- 4500", notes: "Good student" },
-  { id: 2, number: "02", name: "محمد العروسي", status: "Not Coming", discount: "15%", duration: "00 class", balance: "0", notes: "Pending fees" },
-  { id: 3, number: "03", name: "مسمي أحمد", status: "Pending", discount: "5%", duration: "00 class", balance: "- 5000", notes: "Late registration" },
-  { id: 4, number: "04", name: "مسمي محمد", status: "Not Coming", discount: "50%", duration: "00 class", balance: "- 4500", notes: "Late registration" },
-  { id: 5, number: "05", name: "مراد مصطفى", status: "Not Coming", discount: "78%", duration: "00 class", balance: "+ 500", notes: "Late registration" },
-  { id: 6, number: "06", name: "محمود مارديني", status: "Coming", discount: "19%", duration: "00 class", balance: "+ 4500", notes: "Late registration" },
-  { id: 7, number: "07", name: "معين معلوف", status: "Coming", discount: "46%", duration: "00 class", balance: "0", notes: "Late registration" },
-  { id: 8, number: "08", name: "Alice Johnson", status: "Coming", discount: "46%", duration: "00 class", balance: "0", notes: "Late registration" }
-]);
+      // Filter conditions
+      const matchesLanguage = selectedLanguage.value === 'All' ||
+        languageName.includes(selectedLanguage.value.toLowerCase())
 
+      const matchesAge = selectedAge.value === 'All' ||
+        ageGroup === selectedAge.value.toLowerCase()
 
-const isRed = ref(true); // reactive property for conditional class
+      const matchesLevel = selectedLevel.value === 'All' ||
+        levelName.includes(selectedLevel.value.toLowerCase())
 
+      return matchesSearch && matchesLanguage && matchesAge && matchesLevel
+    } catch (error) {
+      console.error('Error filtering row:', row, error)
+      return false
+    }
+  })
+})
 
-// Edit Row Action
-const editRow = (row) => {
-  alert(`Edit student: ${row.name}`);
-};
+// Helper functions
+function extractLanguageName(row) {
+  if (!row) return ''
+  if (row.language?.language_name) return row.language.language_name
+  if (typeof row.language === 'string') return row.language
+  if (row.class_name) return row.class_name.split(' - ')[1] || ''
+  return ''
+}
+
+function extractLevelName(row) {
+  if (!row) return ''
+  if (row.level?.level_name) return row.level.level_name
+  if (typeof row.level === 'string') return row.level
+  if (row.class_name) return row.class_name.split(' - ')[0] || ''
+  return ''
+}
+
+// Pagination
+function paginateData() {
+  const start = (currentPage.value - 1) * rowsPerPage.value
+  displayedData.value = filteredData.value.slice(start, start + rowsPerPage.value)
+}
+
+function goToPage() {
+  currentPage.value = Math.max(1, Math.min(currentPage.value, totalPages.value))
+  paginateData()
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    paginateData()
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    paginateData()
+  }
+}
+
+// API
+const token = localStorage.getItem('access_token')
+const headers = { Authorization: `Bearer ${token}` }
+
+async function fetchData() {
+  try {
+    const response = await axios.get('http://127.0.0.1:8000/api/classes/', { headers })
+
+    tableData.value = response.data.map(row => {
+      // Prefer backend count; fallback to existing field if needed
+      const count = row.active_enrollments_count ?? row.students_number ?? 0
+
+      // Determine styling based on active enrollment count
+      let colorClass = ''
+      if (count === 0) {
+        colorClass = 'bg-[#D1D8E7]'
+      } else if (count > 7 && count <= 13) {
+        colorClass = 'bg-[#E3F5EE]'
+      } else if (count > 13) {
+        colorClass = 'bg-[#FCECEC]'
+      }
+
+      // Determine border color based on age group
+      let leftBorderColor = ''
+      switch ((row.age_group || '').toLowerCase()) {
+        case 'kids': leftBorderColor = 'bg-[#FEB726]'; break
+        case 'teens': leftBorderColor = 'bg-[#14B5C7]'; break
+        case 'adults': leftBorderColor = 'bg-[#F98182]'; break
+        default: leftBorderColor = 'bg-gray-500'
+      }
+
+      return {
+        ...row,
+        // normalize to use the active enrollment count everywhere
+        students_number: count,
+        row_class: colorClass,
+        color: leftBorderColor
+      }
+    })
+
+    currentPage.value = 1
+    paginateData()
+  } catch (error) {
+    console.error("Error fetching data:", error)
+  }
+}
+
+async function fetchDataForFilters() {
+  try {
+    const [languagesRes, levelsRes] = await Promise.all([
+      axios.get('http://127.0.0.1:8000/api/languages/', { headers }),
+      axios.get('http://127.0.0.1:8000/api/levels/', { headers })
+    ])
+
+    languages.value = languagesRes.data
+    levels.value = levelsRes.data
+  } catch (err) {
+    console.error('Error fetching filter data:', err)
+  }
+}
+
+// Computed property to check if filters are active
+const areFiltersActive = computed(() => {
+  return (
+    searchTerm.value !== "" ||
+    selectedLanguage.value !== "All" ||
+    selectedAge.value !== "All" ||
+    selectedLevel.value !== "All" ||
+    currentPage.value !== 1 ||
+    rowsPerPage.value !== 10
+  );
+});
+
+// Reset all filters and pagination
+function resetFilters() {
+  searchTerm.value = "";
+  selectedLanguage.value = "All";
+  selectedAge.value = "All";
+  selectedLevel.value = "All";
+  currentPage.value = 1;
+  rowsPerPage.value = 10;
+  paginateData();
+}
+// Lifecycle
+onMounted(() => {
+  fetchData()
+  fetchDataForFilters()
+})
+
+// Watchers
+watch([searchTerm, rowsPerPage, selectedLanguage, selectedAge, selectedLevel], () => {
+  currentPage.value = 1
+  paginateData()
+})
 </script>
+
+
 
 <template>
   <div class="p-4 bg-gray-100 rounded-lg">
-    <div class="relative flex justify-between py-2 overflow-x-auto rounded whitespace-nowrap">
-      <div class="inline-flex max-w-md overflow-hidden rounded min-w-max">
-        <input type="text" placeholder="Search"
-          class="border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-black"></input>
+    <div class="relative flex justify-between overflow-x-auto rounded whitespace-nowrap">
+      <div class="inline-flex max-w-md p-2 overflow-hidden rounded min-w-max">
+        <label for="table-search" class="sr-only">Search</label>
+        <div class="relative p-1">
+          <div class="absolute inset-y-0 rtl:inset-r-0 start-0 flex items-center ps-3 pointer-events-none">
+            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
+              fill="none" viewBox="0 0 20 20">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
+            </svg>
+          </div>
+          <input v-model="searchTerm" type="text" id="table-search"
+            class="py-2 block ps-12 text-sm text-[#22305C] border border-[#939BAD] rounded-lg w-60 bg-[#FFFFFF]"
+            placeholder="Search by name, city, parent..." />
+        </div>
       </div>
 
-      <div class="inline-flex max-w-md ml-3 text-[#22305C] overflow-hidden rounded-lg min-w-max">
-        <select class="text-sm w-36 rounded-lg px-4 py-2 bg-[#A0AEC9] focus:ring-0 focus:ring-[#3D548D]">
-          <option>All Languages</option>
-          <option>English</option>
-          <option>Arabic</option>
-          <option>French</option>
+      <div class="inline-flex max-w-md ml-3 p-2 text-[#22305C] font-semibold overflow-hidden rounded-lg min-w-max">
+        <select v-model="selectedLanguage"
+          class="text-sm w-36 rounded-lg px-4 bg-[#A0AEC9] hover:bg-[#7F8FA9] transition-colors">
+          <option value="All">All Languages</option>
+          <option v-for="lang in languages" :key="lang.id" :value="lang.language_name">
+            {{ lang.language_name }}
+          </option>
         </select>
-        <select class="text-sm w-36 rounded-lg ml-4 px-4 py-2 bg-[#A0AEC9] focus:ring-0 focus:ring-[#3D548D]">
-          <option>All Ages</option>
-          <option>Children</option>
-          <option>Teenagers</option>
-          <option>Adults</option>
+
+        <select v-model="selectedAge"
+          class="text-sm w-36 rounded-lg ml-4 px-4 bg-[#A0AEC9] hover:bg-[#7F8FA9] transition-colors">
+          <option value="All">All Ages</option>
+          <option value="kids">Kids</option>
+          <option value="teens">Teens</option>
+          <option value="adults">Adults</option>
         </select>
-        <select class="text-sm w-36 rounded-lg ml-4 px-4 py-2 bg-[#A0AEC9] focus:ring-0 focus:ring-[#3D548D]">
-          <option>All Levels</option>
-          <option>Beginner</option>
-          <option>Intermediate</option>
-          <option>Advanced</option>
+
+        <select v-model="selectedLevel"
+          class="text-sm w-36 rounded-lg ml-4 px-4 bg-[#A0AEC9] hover:bg-[#7F8FA9] transition-colors">
+          <option value="All">All Levels</option>
+          <option v-for="lvl in levels" :key="lvl.id" :value="lvl.level_name">
+            {{ lvl.level_name }}
+          </option>
         </select>
-        <button>
+
+        <button @click="resetFilters" :disabled="!areFiltersActive" class="reset-btn"
+          :class="{ 'disabled-btn': !areFiltersActive }">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-3 text-gray-600" fill="none" viewBox="0 0 24 24"
             stroke="currentColor" stroke-width="2">
             <g clip-path="url(#clip0_429_11071)">
@@ -85,15 +258,18 @@ const editRow = (row) => {
       </div>
 
 
-      <div class="inline-flex ml-3 overflow-hidden rounded-lg min-w-max">
+      <div class="inline-flex ml-3 p-2 overflow-hidden rounded-lg min-w-max">
         <!-- Action Buttons -->
 
-        <button class="bg-[#3D548D] text-white text-sm  px-4 py-2 rounded-lg hover:bg-blue-800" @click="opennewregistration = true">
-          New Registration</button>
+        <button @click="isModalOpen = true"
+          class="bg-[#3D548D] text-white text-sm ml-4 px-4 rounded-lg hover:bg-blue-800">
+          New Registration Regular
+        </button>
+
         <!-- Registration Modal -->
 
-        <button class="bg-[#3D548D] text-white text-sm ml-4 px-4 py-2 rounded-lg hover:bg-blue-800"
-        @click="opennewclass = true">New Class</button>
+        <button class="bg-[#3D548D] text-white text-sm ml-4 px-4 rounded-lg hover:bg-blue-800"
+          @click="opennewclass = true">New Class</button>
       </div>
 
 
@@ -125,18 +301,18 @@ const editRow = (row) => {
             </tr>
           </thead>
           <tbody class="text-[#22305C]">
-            <tr v-for="(row, index) in paginatedData" :key="index" :class="getRowClass(row.students)" class="relative">
+            <tr v-for="(row, index) in displayedData" :key="index" :class="row.row_class" class="relative">
               <!-- Table Data -->
               <td class="px-0 relative">
                 <div :class="`absolute left-0 top-0 bottom-0 w-2 rounded-r-lg ${row.color}`"></div>
               </td>
-              <td class="px-4 py-2 text-center text-sm">{{ row.class }}</td>
-              <td class="px-4 py-2 text-center text-sm">{{ row.students }}</td>
-              <td class="px-4 py-2 text-center text-sm">{{ row.days }}</td>
-              <td class="px-4 py-2 text-center text-sm">{{ row.time }}</td>
-              <td class="px-4 py-2 text-gray-500 text-center text-sm">Not Assigned</td>
-              <td class="px-4 py-2 text-center text-sm">{{ row.startDate }}</td>
-              <td class="px-4 py-2 text-center text-sm">
+              <td class="px-4 py-2 text-center text-sm font-semibold">{{ row.class_name }}</td>
+              <td class="px-4 py-2 text-center text-sm font-semibold">{{ row.students_number }}</td>
+              <td class="px-4 py-2 text-center text-sm font-semibold">{{ row.days }}</td>
+              <td class="px-4 py-2 text-center text-sm font-semibold">{{ row.time }}</td>
+              <td class="px-4 py-2 text-gray-500 text-center text-sm font-semibold">{{ row.teacher_name }}</td>
+              <td class="px-4 py-2 text-center text-sm font-semibold">{{ row.start_date }}</td>
+              <td class="px-4 py-2 text-center text-sm font-semibold">
                 <button class="p-1">
                   <svg class="w-5 h-5" viewBox="0 0 22 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path
@@ -210,112 +386,23 @@ const editRow = (row) => {
     role="dialog" aria-labelledby="modal-title">
     <!-- Overlay -->
     <div class="absolute w-full h-full backdrop-blur-md" @click="opennewclass = false" aria-hidden="true"></div>
-    <ClassesModal/>
+    <ClassesModal />
   </div>
 
   <div
-      :class="['modal', { 'opacity-0 pointer-events-none': !opennewregistration }, 'z-50 fixed w-full h-full top-0 left-0 flex items-center justify-center']"
-      role="dialog"
-      aria-labelledby="modal-title"
-    >
-      <!-- Overlay -->
-      <div
-        class="absolute w-full h-full filter backdrop-blur-xl opacity-70 animate-blob"
-        @click="opennewregistration = false"
-        aria-hidden="true"
-      ></div>
-      <NewRegistrationModal />
+    :class="['modal', { 'opacity-0 pointer-events-none': !isModalOpen }, 'z-50 fixed w-full h-full top-0 left-0 flex items-center justify-center']"
+    role="dialog" aria-labelledby="modal-title">
+    <!-- Overlay -->
+    <div class="absolute w-full h-full filter backdrop-blur-xl opacity-70 animate-blob" @click="isModalOpen = false"
+      aria-hidden="true">
+    </div>
+    <transition name="modal">
+      <NewRegistrationModal v-if="isModalOpen" :open="isModalOpen" selectedComponent="regular"
+        @close="isModalOpen = false" />
+    </transition>
   </div>
 
 </template>
-
-<script>
-import StartGroupModal from '../../modals/StartGroupModal.vue';
-import ClassesModal from '../../modals/ClassesModal.vue';
-import NewRegistrationModal from '../../modals/NewRegistrationModal.vue';
-
-export default {
-  components: {
-    StartGroupModal,
-    ClassesModal,
-    NewRegistrationModal, 
-  },
-  data() {
-    return {
-      activeTab: "regular",
-      tableData: [
-        { class: "A1.1 | En | Adults", students: 15, days: "Weekend Days", time: "Mornings", startDate: "26/12/2024", color: 'bg-[#F98182]' },
-        { class: "A1.1 | Fr | Teens", students: 14, days: "Weekend Days", time: "Mornings", startDate: "26/12/2024", color: 'bg-[#14B5C7]' },
-        { class: "A1.1 | Fr | Kids", students: 13, days: "Weekend Days", time: "Mornings", startDate: "26/12/2024", color: 'bg-[#FEB726]' },
-        { class: "A1.1 | Fr | Adults", students: 8, days: "Weekend Days", time: "Mornings", startDate: "26/12/2024", color: 'bg-[#F98182]' },
-        { class: "A1.1 | Fr | Adults", students: 15, days: "Weekend Days", time: "Mornings", startDate: "26/12/2024", color: 'bg-[#F98182]' },
-        { class: "A1.1 | Fr | Adults", students: 0, days: "Weekend Days", time: "Mornings", startDate: "26/12/2024", color: 'bg-[#14B5C7]' },
-        { class: "A1.1 | Fr | Adults", students: 5, days: "Weekend Days", time: "Mornings", startDate: "26/12/2024", color: 'bg-[#F98182]' },
-      ],
-      rowsPerPage: 10,
-      currentPage: 1,
-      paginatedData: [],
-
-    };
-  },
-  computed: {
-    totalPages() {
-      return Math.ceil(this.tableData.length / this.rowsPerPage);
-    },
-  },
-  methods: {
-    getRowClass(students) {
-      if (students > 10) return "bg-[#FCECEC]";
-      if (students > 5) return "bg-[#E3F5EE]";
-      if (students == 0) return "bg-[#D1D8E7]";
-      return "bg-[#F0F2F7]";
-    },
-    getColor(row) {
-      if (row.students > 10) return "bg-red-500";
-      if (row.students > 5) return "bg-yellow-500";
-      return "bg-green-500";
-    },
-    updatePagination() {
-      this.currentPage = 1; // Reset to the first page
-      this.paginateData();
-    },
-    paginateData() {
-      const start = (this.currentPage - 1) * this.rowsPerPage;
-      const end = start + this.rowsPerPage;
-      this.paginatedData = this.tableData.slice(start, end);
-    },
-    goToPage() {
-      if (this.currentPage < 1) this.currentPage = 1;
-      if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
-      this.paginateData();
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-        this.paginateData();
-      }
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-        this.paginateData();
-      }
-    },
-  },
-  watch: {
-    tableData: {
-      handler() {
-        this.paginateData();
-      },
-      immediate: true,
-    },
-  },
-  mounted() {
-    this.paginateData();
-  },
-};
-</script>
-
 
 <style>
 .text-blue-500 {

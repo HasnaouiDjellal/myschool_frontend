@@ -1,48 +1,89 @@
 <script setup>
-import { ref } from 'vue';
-import PeopleStaffCallLog from '../modals/PeopleStaffCallLog.vue';
-// Modal and Form State
-const open = ref(false);
-const openstaff = ref(false);
-const openstaffprofile = ref(false);
+import { ref, computed, onMounted, watch } from 'vue'
+import axios from 'axios'
+import StaffProfile from "../modals/StaffProfile.vue"
+import PeopleStaffCallLog from '../modals/PeopleStaffCallLog.vue'
+import NewStaffModal from '../modals/NewStaffModal.vue'
 
-// Table State
-const rows = ref([
-  {
-    id: "1",
-    admin: "Raouf Boukhoucha",
-    date: "DD/MM/YYYY",
-    time: "00:00",
-    reason: "New group",
-    comment: "Not Comming",
-  },
-  {
-    id: "2",
-    admin: "Raouf Boukhoucha",
-    date: "DD/MM/YYYY",
-    time: "00:00",
-    reason: "New group",
-    comment: "Not Comming",
-  },
-  {
-    id: "3",
-    admin: "Raouf Boukhoucha",
-    date: "DD/MM/YYYY",
-    time: "00:00",
-    reason: "New group",
-    comment: "Not Comming",
-  },
-  {
-    id: "4",
-    admin: "Raouf Boukhoucha",
-    date: "DD/MM/YYYY",
-    time: "00:00",
-    reason: "New group",
-    comment: "Not Comming",
-  },
+// Modals
+const open = ref(false)
+const openstaff = ref(false)
+const isModalOpen = ref(false)
+const selectedStaffId = ref(null)
 
-]);
+// Data
+const tableData = ref([])
+const paginatedData = ref([])
+const rowsPerPage = ref(10)
+const currentPage = ref(1)
+const searchTerm = ref('')
+const fullList = ref([])
 
+function openModalWithStaff(id) {
+  selectedStaffId.value = id
+  isModalOpen.value = true
+}
+
+
+const filteredData = computed(() => {
+  const term = searchTerm.value.toLowerCase()
+  return tableData.value.filter(row =>
+    Object.values(row).some(val =>
+      String(val).toLowerCase().includes(term)
+    )
+  )
+})
+
+const totalPages = computed(() =>
+  Math.ceil(filteredData.value.length / rowsPerPage.value)
+)
+
+const paginateData = () => {
+  const start = (currentPage.value - 1) * rowsPerPage.value
+  const end = start + rowsPerPage.value
+  paginatedData.value = filteredData.value.slice(start, end)
+}
+
+const goToPage = () => {
+  if (currentPage.value < 1) currentPage.value = 1
+  if (currentPage.value > totalPages.value) currentPage.value = totalPages.value
+  paginateData()
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    paginateData()
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    paginateData()
+  }
+}
+
+watch([searchTerm, rowsPerPage], () => {
+  currentPage.value = 1
+  paginateData()
+})
+
+onMounted(() => {
+  const token = localStorage.getItem('access_token')
+  axios.get('http://127.0.0.1:8000/api/staffs/', {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).then((response) => {
+    fullList.value = response.data
+    tableData.value = response.data
+    paginateData()
+  }).catch((error) => {
+    console.error('Error fetching students:', error.response?.data || error.message)
+  })
+}
+)
 </script>
 <template>
   <div class="p-4 bg-gray-100 rounded-lg">
@@ -50,7 +91,7 @@ const rows = ref([
     <div class="relative flex justify-between py-2 overflow-x-auto rounded whitespace-nowrap">
       <div class="inline-flex max-w-md overflow-hidden rounded min-w-max">
         <label for="table-search" class="sr-only">Search</label>
-        <div class="relative">
+        <div class="relative p-1">
           <div class="absolute inset-y-0 rtl:inset-r-0 start-0 flex items-center ps-3 pointer-events-none">
             <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"
               fill="none" viewBox="0 0 20 20">
@@ -58,9 +99,13 @@ const rows = ref([
                 d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
             </svg>
           </div>
-          <input type="text" id="table-search"
-            class="py-2 block ps-10 text-sm text-[#22305C] border border-[#939BAD] rounded-lg w-60 bg-[#FFFFFF] focus:ring-[#3D548D] focus:border-[#D1D8E7]"
-            placeholder="Search">
+          <input
+            v-model="searchTerm"
+            type="text"
+            id="table-search"
+            class="py-2 block ps-12 text-sm text-[#22305C] border border-[#939BAD] rounded-lg w-60 bg-[#FFFFFF]"
+            placeholder="Search by name, city, parent..."
+          />
         </div>
       </div>
 
@@ -83,32 +128,34 @@ const rows = ref([
           <thead>
             <tr class="bg-[#F0F2F7] text-center">
               <th class="px-2 py-2 text-[#22305C] font-medium">AID</th>
-              <th class="px-2 py-2 text-[#22305C] font-medium">Staff Name</th>
-              <th class="px-2 py-2 text-[#22305C] font-medium">Parten Name 1</th>
-              <th class="px-2 py-2 text-[#22305C] font-medium">Phone Number 2</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">Last Name</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">First Name</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">email</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">Phone Number</th>
               <th class="px-2 py-2 text-[#22305C] font-medium">Birth Date</th>
-              <th class="px-2 py-2 text-[#22305C] font-medium">Address</th>
+              <th class="px-2 py-2 text-[#22305C] font-medium">Street</th>
               <th class="px-2 py-2 text-[#22305C] font-medium">Action</th>
             </tr>
           </thead>
           <tbody class="text-[#22305C]">
             <tr v-for="(row, index) in paginatedData" :key="index" class="relative odd:bg-[#F7F8FA]">
               <!-- Table Data -->
-              <td class="px-4 py-2 text-center text-md">{{ row.aid }}</td>
-              <td class="px-4 py-2 text-center text-md">{{ row.staff_name }}</td>
-              <td class="px-4 py-2 text-center text-md">{{ row.parten_name }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.id }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.last_name }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.first_name }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.email }}</td>
               <td class="px-4 py-2 text-center text-md">{{ row.phone_number }}</td>
-              <td class="px-4 py-2 text-center text-md">{{ row.dateofbirth }}</td>
-              <td class="px-4 py-2 text-center text-md">{{ row.address }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.birth_date }}</td>
+              <td class="px-4 py-2 text-center text-md">{{ row.street }}</td>
               <td class="px-4 py-2 text-center text-md">
-                <button class="p-1" @click="open = true">
+                <button class="p-1"@click="openModalWithTeacher(row.id)">
                   <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd"
                       d="M22 6C22 3.79086 20.2091 2 18 2H6C3.79086 2 2 3.79086 2 6V18C2 20.2091 3.79086 22 6 22H18C20.2091 22 22 20.2091 22 18V6ZM7.20522 6.79234C8.35737 5.64019 10.3016 5.72778 11.1039 7.16524L11.549 7.96275C12.0335 8.83097 11.8789 9.90936 11.2462 10.6806C11.143 10.8064 11.0195 10.9302 11.0116 11.0926C11.003 11.2684 11.0654 11.6749 11.6952 12.3048C12.3248 12.9344 12.7313 12.997 12.9072 12.9885C13.0698 12.9805 13.1937 12.857 13.3195 12.7537C14.0908 12.1211 15.1691 11.9666 16.0373 12.4511L16.8348 12.8961C18.2722 13.6984 18.3598 15.6427 17.2077 16.7948C16.5914 17.4111 15.772 17.9587 14.809 17.9952C13.382 18.0493 11.0124 17.6807 8.66585 15.3341C6.31927 12.9876 5.95075 10.6181 6.00484 9.19103C6.04135 8.22806 6.58894 7.40862 7.20522 6.79234ZM10.2056 7.66655C9.79483 6.93047 8.69094 6.76136 7.93259 7.51971C7.40088 8.05143 7.0552 8.63832 7.03277 9.22999C6.98766 10.42 7.28147 12.495 9.39322 14.6068C11.505 16.7185 13.5799 17.0124 14.77 16.9672C15.3617 16.9448 15.9486 16.5991 16.4803 16.0674C17.2386 15.309 17.0695 14.2052 16.3335 13.7944L15.536 13.3493C15.0399 13.0725 14.3429 13.167 13.8537 13.6562C13.8056 13.7042 13.4999 13.9895 12.9572 14.0159C12.4015 14.0429 11.729 13.7933 10.9679 13.0321C10.2065 12.2708 9.95694 11.598 9.98415 11.0424C10.0107 10.4995 10.2962 10.1939 10.3439 10.1462C10.8331 9.65699 10.9276 8.96015 10.6507 8.46405L10.2056 7.66655Z"
                       fill="#22305C" />
                   </svg>
                 </button>
-                <button class="p-1" @click="openstaffprofile = true">
+                <button class="p-1" @click="open = true">
                   <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path fill-rule="evenodd" clip-rule="evenodd"
                       d="M22 6C22 3.79086 20.2091 2 18 2H6C3.79086 2 2 3.79086 2 6V18C2 20.2091 3.79086 22 6 22H18C20.2091 22 22 20.2091 22 18V6ZM7.20522 6.79234C8.35737 5.64019 10.3016 5.72778 11.1039 7.16524L11.549 7.96275C12.0335 8.83097 11.8789 9.90936 11.2462 10.6806C11.143 10.8064 11.0195 10.9302 11.0116 11.0926C11.003 11.2684 11.0654 11.6749 11.6952 12.3048C12.3248 12.9344 12.7313 12.997 12.9072 12.9885C13.0698 12.9805 13.1937 12.857 13.3195 12.7537C14.0908 12.1211 15.1691 11.9666 16.0373 12.4511L16.8348 12.8961C18.2722 13.6984 18.3598 15.6427 17.2077 16.7948C16.5914 17.4111 15.772 17.9587 14.809 17.9952C13.382 18.0493 11.0124 17.6807 8.66585 15.3341C6.31927 12.9876 5.95075 10.6181 6.00484 9.19103C6.04135 8.22806 6.58894 7.40862 7.20522 6.79234ZM10.2056 7.66655C9.79483 6.93047 8.69094 6.76136 7.93259 7.51971C7.40088 8.05143 7.0552 8.63832 7.03277 9.22999C6.98766 10.42 7.28147 12.495 9.39322 14.6068C11.505 16.7185 13.5799 17.0124 14.77 16.9672C15.3617 16.9448 15.9486 16.5991 16.4803 16.0674C17.2386 15.309 17.0695 14.2052 16.3335 13.7944L15.536 13.3493C15.0399 13.0725 14.3429 13.167 13.8537 13.6562C13.8056 13.7042 13.4999 13.9895 12.9572 14.0159C12.4015 14.0429 11.729 13.7933 10.9679 13.0321C10.2065 12.2708 9.95694 11.598 9.98415 11.0424C10.0107 10.4995 10.2962 10.1939 10.3439 10.1462C10.8331 9.65699 10.9276 8.96015 10.6507 8.46405L10.2056 7.66655Z"
@@ -208,7 +255,7 @@ const rows = ref([
         <!-- Modal Header -->
         <div class="flex justify-between items-center mb-2 border-b pb-2 overflow-x-auto">
           <h2 id="modal-title" class="text-xl font-bold text-black">
-            Teacher Profile
+            Staff Profile
           </h2>
           <button class="bg-[#3D548D] text-white text-sm  px-4 py-2 rounded-lg hover:bg-blue-800 ">Teacher
             Availability</button>
@@ -239,78 +286,6 @@ const rows = ref([
   </div>
 
 </template>
-
-<script>
-import PeopleStaffCallLog from "../modals/PeopleStaffCallLog.vue";
-import NewStaffModal from '../modals/NewStaffModal.vue';
-import StaffProfile from '../modals/StaffProfile.vue';
-export default {
-  components: {
-    PeopleStaffCallLog,
-    NewStaffModal,
-  },
-  data() {
-    return {
-      activeTab: "regular",
-      tableData: [
-        { aid: "AID", staff_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { aid: "AID", staff_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { aid: "AID", staff_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { aid: "AID", staff_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { aid: "AID", staff_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-        { aid: "AID", staff_name: "مسعي أحمد محمد لعروسي", parten_name: "0666666666", phone_number: "0666666666", dateofbirth: "26/12/2024", address: "حي 19 مارس 1962 الوادي" },
-      ],
-      rowsPerPage: 10,
-      currentPage: 1,
-      paginatedData: [],
-    };
-  },
-  computed: {
-    totalPages() {
-      return Math.ceil(this.tableData.length / this.rowsPerPage);
-    },
-  },
-  methods: {
-    updatePagination() {
-      this.currentPage = 1; // Reset to the first page
-      this.paginateData();
-    },
-    paginateData() {
-      const start = (this.currentPage - 1) * this.rowsPerPage;
-      const end = start + this.rowsPerPage;
-      this.paginatedData = this.tableData.slice(start, end);
-    },
-    goToPage() {
-      if (this.currentPage < 1) this.currentPage = 1;
-      if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
-      this.paginateData();
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-        this.paginateData();
-      }
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-        this.paginateData();
-      }
-    },
-  },
-  watch: {
-    tableData: {
-      handler() {
-        this.paginateData();
-      },
-      immediate: true,
-    },
-  },
-  mounted() {
-    this.paginateData();
-  },
-};
-</script>
 
 <style>
 .text-blue-500 {

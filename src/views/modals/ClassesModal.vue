@@ -1,53 +1,55 @@
 <script setup>
-import { ref } from 'vue';
-import NewClass from './NewClass.vue';
-import UpdateClass from './UpdateClass.vue';
-import NewLanguage from './NewLanguage.vue';
-import Updatelanguage from './UpdateLanguage.vue';
-import NewLevel from './NewLevel.vue';
-import UpdateLevel from './UpdateLevel.vue';
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
+import NewClass from './NewClass.vue'
+import UpdateClass from './UpdateClass.vue'
+import NewLanguage from './NewLanguage.vue'
+import UpdateLanguage from './UpdateLanguage.vue'
+import NewLevel from './NewLevel.vue'
+import UpdateLevel from './UpdateLevel.vue'
 
-// Modal and Form State
-const open = ref(false);
-const opennewclass = ref(false);
-const updateclass = ref(false);
-const newlanguage = ref(false);
-const updatelanguage = ref(false);
-const opennewlevel = ref(false);
-const openupdatelevel = ref(false);
+const classes = ref([])
+const languages = ref([])
+const levels = ref([])
 
+const opennewclass = ref(false)
+const updateclass = ref(false)
+const classId = ref(null)
 
-// Set Active Form Function
-const setActiveForm = (form) => {
-    activeForm.value = form;
-};
+const newlanguage = ref(false)
+const updatelanguage = ref(false)
+const languageId = ref(null)
 
-// Dropdown State
-const dropdownOpen = ref(false);
+const opennewlevel = ref(false)
+const updatelevel = ref(false)
+const levelId = ref(null)
 
+const token = localStorage.getItem('access_token')
+const headers = { Authorization: `Bearer ${token}` }
 
-// Sample Data for Suggested Groups
-const rows = ref([
-    { id: 1, groupname: "A1.1 | Fr | Teens", price: "4500" },
-    { id: 2, groupname: "A1.1 | Fr | Kids", price: "4500" },
-    { id: 3, groupname: "A1.1 | Fr | Adults", price: "6000" },
-    { id: 4, groupname: "A1.1 | Eng | Adults", price: "6000" },
-    { id: 5, groupname: "A1.1 | Eng | Kids", price: "4500" },
-    { id: 6, groupname: "A1.1 | Eng | Teens", price: "4500" }
-]);
+async function fetchAll() {
+    try {
+        const [classesRes, languagesRes, levelsRes] = await Promise.all([
+            axios.get('http://127.0.0.1:8000/api/classes/', { headers }),
+            axios.get('http://127.0.0.1:8000/api/languages/', { headers }),
+            axios.get('http://127.0.0.1:8000/api/levels/', { headers })
+        ])
+        classes.value = classesRes.data
+        languages.value = languagesRes.data
+        levels.value = levelsRes.data
+    } catch (err) {
+        console.error('Error fetching data:', err)
+    }
+}
 
-const languagelist = ref([
-    { id: 1, language: "English" },
-    { id: 2, language: "French" },
-    { id: 3, language: "Spanish" },
-]);
+function handleDataChanged() {
+    fetchAll()
+}
 
-const levelist = ref([
-    { id: 1, level: "Pre A1" },
-    { id: 2, level: "A1" },
-    { id: 3, level: "A2" },
-]);
+onMounted(fetchAll)
 </script>
+
+
 <template>
     <div class="relative w-full h-[80vh] max-w-4xl mt-4 bg-[#E8EBF2] rounded-2xl shadow-xl p-2 pl-6 pr-6 overflow-auto">
         <!-- Modal Header -->
@@ -86,17 +88,17 @@ const levelist = ref([
                     <div class="max-h-[320px]">
                         <table class="min-w-full border-separate" style="border-spacing: 0 10px;">
                             <tbody class="overflow-y-auto rounded-lg">
-                                <tr v-for="(row, index) in rows" :key="index"
+                                <tr v-for="(cls) in classes" :key="cls.id"
                                     class="bg-[#FFFFFF] hover:bg-[#939BAD] text-center text-md text-gray-800">
                                     <td class="py-3 px-4 border-l border-t border-b border-[#939BAD] rounded-l-lg">{{
-                                        row.id }}
+                                        cls.id }}
                                     </td>
-                                    <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ row.groupname }}</td>
+                                    <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ cls.class_name }}</td>
                                     <td class="py-2 px-4  border-t border-b border-[#939BAD] ">{{
-                                        row.price }}</td>
+                                        cls.price }} DZD</td>
                                     <td class="py-2 px-4 border-r border-t border-b border-[#939BAD] rounded-r-lg">
-                                        <button class="p-1">
-                                            <svg class="w-6 h-6" @click="updateclass = true" viewBox="0 0 24 25"
+                                        <button class="p-1" @click="classId = cls.id; updateclass = true">
+                                            <svg class="w-6 h-6" viewBox="0 0 24 25"
                                                 fill="none" xmlns="http://www.w3.org/2000/svg">
                                                 <path fill-rule="evenodd" clip-rule="evenodd"
                                                     d="M11.9424 1.29846H13.4998C13.914 1.29846 14.2498 1.63425 14.2498 2.04846C14.2498 2.46267 13.914 2.79846 13.4998 2.79846H11.9998C9.62154 2.79846 7.91332 2.80005 6.61334 2.97483C5.33493 3.14671 4.56421 3.4736 3.99456 4.04326C3.4249 4.61291 3.09801 5.38363 2.92613 6.66204C2.75135 7.96202 2.74976 9.67024 2.74976 12.0485C2.74976 14.4267 2.75135 16.1349 2.92613 17.4349C3.09801 18.7133 3.4249 19.484 3.99456 20.0537C4.56421 20.6234 5.33493 20.9503 6.61334 21.1221C7.91332 21.2969 9.62154 21.2985 11.9998 21.2985C14.378 21.2985 16.0862 21.2969 17.3862 21.1221C18.6646 20.9503 19.4353 20.6234 20.005 20.0537C20.5747 19.484 20.9016 18.7133 21.0734 17.4349C21.2482 16.1349 21.2498 14.4267 21.2498 12.0485V10.5485C21.2498 10.1343 21.5856 9.79846 21.9998 9.79846C22.414 9.79846 22.7498 10.1343 22.7498 10.5485V12.1059C22.7498 14.4143 22.7498 16.2233 22.5601 17.6348C22.3658 19.0795 21.9605 20.2196 21.0657 21.1144C20.1709 22.0092 19.0308 22.4145 17.5861 22.6088C16.1746 22.7985 14.3656 22.7985 12.0572 22.7985H11.9424C9.63399 22.7985 7.82495 22.7985 6.41347 22.6088C4.96873 22.4145 3.82871 22.0092 2.9339 21.1144C2.03909 20.2196 1.63375 19.0795 1.43951 17.6348C1.24974 16.2233 1.24975 14.4143 1.24976 12.1059V11.9911C1.24975 9.68269 1.24974 7.87365 1.43951 6.46217C1.63375 5.01743 2.03909 3.87741 2.9339 2.9826C3.82871 2.08779 4.96873 1.68245 6.41347 1.48821C7.82495 1.29844 9.63399 1.29845 11.9424 1.29846ZM16.7703 2.32438C18.1382 0.956491 20.356 0.956491 21.7239 2.32438C23.0918 3.69226 23.0918 5.91004 21.7239 7.27793L15.0758 13.9261C14.7045 14.2974 14.4719 14.53 14.2124 14.7325C13.9067 14.9709 13.5759 15.1753 13.2259 15.3421C12.9288 15.4837 12.6167 15.5877 12.1186 15.7537L9.21402 16.7219C8.67777 16.9006 8.08656 16.7611 7.68687 16.3614C7.28718 15.9617 7.14761 15.3705 7.32636 14.8342L8.29453 11.9297C8.46055 11.4316 8.56455 11.1195 8.70616 10.8224C8.87295 10.4724 9.07737 10.1416 9.31581 9.83588C9.51825 9.57633 9.75086 9.34375 10.1222 8.97246L16.7703 2.32438ZM20.6632 3.38504C19.8811 2.60294 18.6131 2.60294 17.831 3.38504L17.4544 3.76166C17.4771 3.85752 17.5088 3.97173 17.553 4.09912C17.6963 4.51218 17.9675 5.05617 18.4798 5.56845C18.9921 6.08073 19.5361 6.35192 19.9491 6.49523C20.0765 6.53943 20.1907 6.57119 20.2866 6.59389L20.6632 6.21727C21.4453 5.43517 21.4453 4.16713 20.6632 3.38504ZM19.1049 7.77555C18.589 7.55365 17.988 7.19792 17.4191 6.62911C16.8503 6.06031 16.4946 5.45928 16.2727 4.94332L11.2173 9.99872C10.8008 10.4153 10.6374 10.5805 10.4986 10.7584C10.3272 10.9782 10.1802 11.2161 10.0603 11.4677C9.96313 11.6715 9.88844 11.8914 9.70216 12.4502L9.27027 13.7459L10.3024 14.778L11.5981 14.3461C12.1569 14.1598 12.3768 14.0851 12.5806 13.988C12.8322 13.8681 13.0701 13.7211 13.2899 13.5497C13.4678 13.4109 13.633 13.2475 14.0495 12.831L19.1049 7.77555Z"
@@ -120,8 +122,6 @@ const levelist = ref([
                                                     fill="#F98182" />
                                             </svg>
                                         </button>
-
-
                                     </td>
                                 </tr>
                             </tbody>
@@ -130,66 +130,68 @@ const levelist = ref([
                 </div>
             </div>
         </div>
-        <div class="grid grid-cols-2 gap-4 item mt-4 max-md:max-w-full">
-            <div class="pb-4 rounded-2xl bg-slate-200 shadow-[0px_0px_4px_rgba(0,0,0,0.25)]">
-                <div class="flex justify-between max-w-4xl p-2 bg-[#D1D8E7] rounded-t-lg">
-                    <h2 class="text-lg font-semibold text-gray-800 mb-1">
-                        Language List
-                    </h2>
-                    <button
-                        class="text-white rounded-lg w-[140px] px-4 py-2 bg-slate-600 h-[40px] hover:bg-slate-700 focus:outline-none focus:ring-2  focus:ring-blue-400"
-                        @click="newlanguage = true" style="background-color: #3D548D;"
-                        onmouseover="this.style.backgroundColor='#2A4A6A'"
-                        onmouseout="this.style.backgroundColor='#3D548D'">
-                        New Language
-                    </button>
-                </div>
-                <div class="overflow-x-auto overflow-y-auto text-lg pr-2 pl-2 shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)]">
-                    <div class="max-h-[320px]">
-                        <table class="min-w-full border-separate" style="border-spacing: 0 10px;">
-                            <tbody class="overflow-y-auto rounded-lg">
-                                <tr v-for="(row, index) in languagelist" :key="index"
-                                    class="bg-[#FFFFFF] hover:bg-[#939BAD] text-center text-md text-gray-800">
-                                    <td class="py-3 px-4 border-l border-t border-b border-[#939BAD] rounded-l-lg">{{
-                                        row.id }}
-                                    </td>
-                                    <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ row.language }}</td>
-                                    <td class="py-2 px-4 border-r border-t border-b border-[#939BAD] rounded-r-lg">
-                                        <button class="p-1" @click="updatelanguage = true">
-                                            <svg class="w-6 h-6" viewBox="0 0 24 25" fill="none"
-                                                xmlns="http://www.w3.org/2000/svg">
-                                                <path fill-rule="evenodd" clip-rule="evenodd"
-                                                    d="M11.9424 1.29846H13.4998C13.914 1.29846 14.2498 1.63425 14.2498 2.04846C14.2498 2.46267 13.914 2.79846 13.4998 2.79846H11.9998C9.62154 2.79846 7.91332 2.80005 6.61334 2.97483C5.33493 3.14671 4.56421 3.4736 3.99456 4.04326C3.4249 4.61291 3.09801 5.38363 2.92613 6.66204C2.75135 7.96202 2.74976 9.67024 2.74976 12.0485C2.74976 14.4267 2.75135 16.1349 2.92613 17.4349C3.09801 18.7133 3.4249 19.484 3.99456 20.0537C4.56421 20.6234 5.33493 20.9503 6.61334 21.1221C7.91332 21.2969 9.62154 21.2985 11.9998 21.2985C14.378 21.2985 16.0862 21.2969 17.3862 21.1221C18.6646 20.9503 19.4353 20.6234 20.005 20.0537C20.5747 19.484 20.9016 18.7133 21.0734 17.4349C21.2482 16.1349 21.2498 14.4267 21.2498 12.0485V10.5485C21.2498 10.1343 21.5856 9.79846 21.9998 9.79846C22.414 9.79846 22.7498 10.1343 22.7498 10.5485V12.1059C22.7498 14.4143 22.7498 16.2233 22.5601 17.6348C22.3658 19.0795 21.9605 20.2196 21.0657 21.1144C20.1709 22.0092 19.0308 22.4145 17.5861 22.6088C16.1746 22.7985 14.3656 22.7985 12.0572 22.7985H11.9424C9.63399 22.7985 7.82495 22.7985 6.41347 22.6088C4.96873 22.4145 3.82871 22.0092 2.9339 21.1144C2.03909 20.2196 1.63375 19.0795 1.43951 17.6348C1.24974 16.2233 1.24975 14.4143 1.24976 12.1059V11.9911C1.24975 9.68269 1.24974 7.87365 1.43951 6.46217C1.63375 5.01743 2.03909 3.87741 2.9339 2.9826C3.82871 2.08779 4.96873 1.68245 6.41347 1.48821C7.82495 1.29844 9.63399 1.29845 11.9424 1.29846ZM16.7703 2.32438C18.1382 0.956491 20.356 0.956491 21.7239 2.32438C23.0918 3.69226 23.0918 5.91004 21.7239 7.27793L15.0758 13.9261C14.7045 14.2974 14.4719 14.53 14.2124 14.7325C13.9067 14.9709 13.5759 15.1753 13.2259 15.3421C12.9288 15.4837 12.6167 15.5877 12.1186 15.7537L9.21402 16.7219C8.67777 16.9006 8.08656 16.7611 7.68687 16.3614C7.28718 15.9617 7.14761 15.3705 7.32636 14.8342L8.29453 11.9297C8.46055 11.4316 8.56455 11.1195 8.70616 10.8224C8.87295 10.4724 9.07737 10.1416 9.31581 9.83588C9.51825 9.57633 9.75086 9.34375 10.1222 8.97246L16.7703 2.32438ZM20.6632 3.38504C19.8811 2.60294 18.6131 2.60294 17.831 3.38504L17.4544 3.76166C17.4771 3.85752 17.5088 3.97173 17.553 4.09912C17.6963 4.51218 17.9675 5.05617 18.4798 5.56845C18.9921 6.08073 19.5361 6.35192 19.9491 6.49523C20.0765 6.53943 20.1907 6.57119 20.2866 6.59389L20.6632 6.21727C21.4453 5.43517 21.4453 4.16713 20.6632 3.38504ZM19.1049 7.77555C18.589 7.55365 17.988 7.19792 17.4191 6.62911C16.8503 6.06031 16.4946 5.45928 16.2727 4.94332L11.2173 9.99872C10.8008 10.4153 10.6374 10.5805 10.4986 10.7584C10.3272 10.9782 10.1802 11.2161 10.0603 11.4677C9.96313 11.6715 9.88844 11.8914 9.70216 12.4502L9.27027 13.7459L10.3024 14.778L11.5981 14.3461C12.1569 14.1598 12.3768 14.0851 12.5806 13.988C12.8322 13.8681 13.0701 13.7211 13.2899 13.5497C13.4678 13.4109 13.633 13.2475 14.0495 12.831L19.1049 7.77555Z"
-                                                    fill="#1C274C" />
-                                            </svg>
-                                        </button>
-                                        <button class="p-1">
-                                            <svg class="w-6 h-6" viewBox="0 0 24 25" fill="none"
-                                                xmlns="http://www.w3.org/2000/svg">
-                                                <path fill-rule="evenodd" clip-rule="evenodd"
-                                                    d="M10.3094 2.39516H13.6908C13.9072 2.39502 14.0957 2.3949 14.2737 2.42333C14.977 2.53563 15.5856 2.97429 15.9146 3.60598C15.9978 3.76587 16.0573 3.94475 16.1256 4.15008L16.2373 4.48498C16.2562 4.54167 16.2616 4.55772 16.2661 4.57036C16.4413 5.05447 16.8953 5.38173 17.4099 5.39478C17.4235 5.39512 17.44 5.39518 17.5001 5.39518H20.5001C20.9143 5.39518 21.2501 5.73096 21.2501 6.14518C21.2501 6.55939 20.9143 6.89518 20.5001 6.89518H3.5C3.08579 6.89518 2.75 6.55939 2.75 6.14518C2.75 5.73096 3.08579 5.39518 3.5 5.39518H6.50008C6.56013 5.39518 6.5767 5.39512 6.59023 5.39478C7.10488 5.38173 7.55891 5.0545 7.73402 4.57038C7.73863 4.55765 7.74392 4.54195 7.76291 4.48498L7.87452 4.1501C7.94281 3.94478 8.00233 3.76587 8.08559 3.60598C8.41453 2.97429 9.02313 2.53563 9.72643 2.42333C9.90445 2.3949 10.093 2.39502 10.3094 2.39516ZM9.00815 5.39518C9.05966 5.29416 9.10531 5.18918 9.14458 5.08062C9.1565 5.04765 9.1682 5.01256 9.18322 4.96748L9.28302 4.66806C9.37419 4.39455 9.39519 4.33877 9.41601 4.29878C9.52566 4.08821 9.72853 3.942 9.96296 3.90456C10.0075 3.89745 10.067 3.89518 10.3553 3.89518H13.6448C13.9331 3.89518 13.9927 3.89745 14.0372 3.90456C14.2716 3.942 14.4745 4.08821 14.5842 4.29878C14.605 4.33877 14.626 4.39454 14.7171 4.66806L14.8169 4.9673L14.8556 5.08064C14.8949 5.18919 14.9405 5.29416 14.992 5.39518H9.00815Z"
-                                                    fill="#F98182" />
-                                                <path
-                                                    d="M5.91512 8.59528C5.88757 8.18198 5.53019 7.86928 5.11689 7.89683C4.7036 7.92438 4.39089 8.28176 4.41844 8.69506L4.88189 15.6468C4.96739 16.9295 5.03645 17.9656 5.19842 18.7787C5.36682 19.624 5.65324 20.3301 6.24483 20.8836C6.83643 21.437 7.55998 21.6759 8.41463 21.7876C9.23665 21.8952 10.275 21.8952 11.5606 21.8951H12.4395C13.7251 21.8952 14.7635 21.8952 15.5856 21.7876C16.4402 21.6759 17.1638 21.437 17.7554 20.8836C18.347 20.3301 18.6334 19.624 18.8018 18.7787C18.9638 17.9657 19.0328 16.9295 19.1183 15.6468L19.5818 8.69506C19.6093 8.28176 19.2966 7.92438 18.8833 7.89683C18.47 7.86928 18.1126 8.18198 18.0851 8.59528L17.6251 15.4944C17.5353 16.8422 17.4713 17.78 17.3307 18.4857C17.1943 19.1701 17.004 19.5324 16.7306 19.7882C16.4572 20.044 16.083 20.2098 15.391 20.3003C14.6776 20.3936 13.7376 20.3951 12.3868 20.3951H11.6134C10.2626 20.3951 9.32258 20.3936 8.60918 20.3003C7.91718 20.2098 7.54302 20.044 7.26961 19.7882C6.9962 19.5324 6.80586 19.1701 6.66951 18.4857C6.52895 17.78 6.46492 16.8422 6.37506 15.4944L5.91512 8.59528Z"
-                                                    fill="#F98182" />
-                                                <path
-                                                    d="M9.42543 10.3989C9.83759 10.3576 10.2052 10.6584 10.2464 11.0705L10.7464 16.0705C10.7876 16.4827 10.4869 16.8502 10.0747 16.8914C9.66253 16.9326 9.295 16.6319 9.25378 16.2198L8.75378 11.2198C8.71257 10.8076 9.01328 10.4401 9.42543 10.3989Z"
-                                                    fill="#F98182" />
-                                                <path
-                                                    d="M14.5747 10.3989C14.9869 10.4401 15.2876 10.8076 15.2464 11.2198L14.7464 16.2198C14.7052 16.6319 14.3376 16.9326 13.9255 16.8914C13.5133 16.8502 13.2126 16.4827 13.2538 16.0705L13.7538 11.0705C13.795 10.6584 14.1626 10.3576 14.5747 10.3989Z"
-                                                    fill="#F98182" />
-                                            </svg>
-                                        </button>
+        <div class="grid grid-cols-2 gap-4 item mt-4 max-md:max-w-full">    
+            <div class="rounded-2xl bg-slate-200 shadow-[0px_0px_4px_rgba(0,0,0,0.25)]">
+                <div class="bg-[#E8EBF2] rounded-xl overflow-hidden shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)]">
+                    <div class="flex justify-between max-w-4xl p-2 bg-[#D1D8E7] rounded-t-lg">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-1">
+                            Language list
+                        </h2>
+                        <button
+                            class="text-white rounded-lg w-[140px] px-4 py-2 bg-slate-600 h-[40px] hover:bg-slate-700 focus:outline-none focus:ring-2  focus:ring-blue-400"
+                            @click="opennewlevel = true" style="background-color: #3D548D;">
+                            New Language
+                        </button>
+                    </div>
+                    <div
+                        class="overflow-x-auto overflow-y-auto text-lg pr-2 pl-2 shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)]">
+                        <div class="max-h-[320px]">
+                            <table class="min-w-full border-separate" style="border-spacing: 0 10px;">
+                                <tbody class="overflow-y-auto rounded-lg">
+                                    <tr v-for="(lang) in languages" :key="lang.id"
+                                        class="bg-[#FFFFFF] hover:bg-[#939BAD] text-center text-md text-gray-800">
+                                        <td class="py-3 px-4 border-l border-t border-b border-[#939BAD] rounded-l-lg">
+                                            {{ lang.id }}
+                                        </td>
+                                        <td class="py-2 px-4 border-t border-b border-[#939BAD]">
+                                            {{ lang.language_name }}
+                                        </td>
 
-
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                        <td class="py-2 px-4 border-r border-t border-b border-[#939BAD] rounded-r-lg">
+                                            <button class="p-1" @click="languageId = lang.id; updatelanguage = true">
+                                                <svg class="w-6 h-6" viewBox="0 0 24 25" fill="none"
+                                                    xmlns="http://www.w3.org/2000/svg">
+                                                    <path fill-rule="evenodd" clip-rule="evenodd"
+                                                        d="M11.9424 1.29846H13.4998C13.914 1.29846 14.2498 1.63425 14.2498 2.04846C14.2498 2.46267 13.914 2.79846 13.4998 2.79846H11.9998C9.62154 2.79846 7.91332 2.80005 6.61334 2.97483C5.33493 3.14671 4.56421 3.4736 3.99456 4.04326C3.4249 4.61291 3.09801 5.38363 2.92613 6.66204C2.75135 7.96202 2.74976 9.67024 2.74976 12.0485C2.74976 14.4267 2.75135 16.1349 2.92613 17.4349C3.09801 18.7133 3.4249 19.484 3.99456 20.0537C4.56421 20.6234 5.33493 20.9503 6.61334 21.1221C7.91332 21.2969 9.62154 21.2985 11.9998 21.2985C14.378 21.2985 16.0862 21.2969 17.3862 21.1221C18.6646 20.9503 19.4353 20.6234 20.005 20.0537C20.5747 19.484 20.9016 18.7133 21.0734 17.4349C21.2482 16.1349 21.2498 14.4267 21.2498 12.0485V10.5485C21.2498 10.1343 21.5856 9.79846 21.9998 9.79846C22.414 9.79846 22.7498 10.1343 22.7498 10.5485V12.1059C22.7498 14.4143 22.7498 16.2233 22.5601 17.6348C22.3658 19.0795 21.9605 20.2196 21.0657 21.1144C20.1709 22.0092 19.0308 22.4145 17.5861 22.6088C16.1746 22.7985 14.3656 22.7985 12.0572 22.7985H11.9424C9.63399 22.7985 7.82495 22.7985 6.41347 22.6088C4.96873 22.4145 3.82871 22.0092 2.9339 21.1144C2.03909 20.2196 1.63375 19.0795 1.43951 17.6348C1.24974 16.2233 1.24975 14.4143 1.24976 12.1059V11.9911C1.24975 9.68269 1.24974 7.87365 1.43951 6.46217C1.63375 5.01743 2.03909 3.87741 2.9339 2.9826C3.82871 2.08779 4.96873 1.68245 6.41347 1.48821C7.82495 1.29844 9.63399 1.29845 11.9424 1.29846ZM16.7703 2.32438C18.1382 0.956491 20.356 0.956491 21.7239 2.32438C23.0918 3.69226 23.0918 5.91004 21.7239 7.27793L15.0758 13.9261C14.7045 14.2974 14.4719 14.53 14.2124 14.7325C13.9067 14.9709 13.5759 15.1753 13.2259 15.3421C12.9288 15.4837 12.6167 15.5877 12.1186 15.7537L9.21402 16.7219C8.67777 16.9006 8.08656 16.7611 7.68687 16.3614C7.28718 15.9617 7.14761 15.3705 7.32636 14.8342L8.29453 11.9297C8.46055 11.4316 8.56455 11.1195 8.70616 10.8224C8.87295 10.4724 9.07737 10.1416 9.31581 9.83588C9.51825 9.57633 9.75086 9.34375 10.1222 8.97246L16.7703 2.32438ZM20.6632 3.38504C19.8811 2.60294 18.6131 2.60294 17.831 3.38504L17.4544 3.76166C17.4771 3.85752 17.5088 3.97173 17.553 4.09912C17.6963 4.51218 17.9675 5.05617 18.4798 5.56845C18.9921 6.08073 19.5361 6.35192 19.9491 6.49523C20.0765 6.53943 20.1907 6.57119 20.2866 6.59389L20.6632 6.21727C21.4453 5.43517 21.4453 4.16713 20.6632 3.38504ZM19.1049 7.77555C18.589 7.55365 17.988 7.19792 17.4191 6.62911C16.8503 6.06031 16.4946 5.45928 16.2727 4.94332L11.2173 9.99872C10.8008 10.4153 10.6374 10.5805 10.4986 10.7584C10.3272 10.9782 10.1802 11.2161 10.0603 11.4677C9.96313 11.6715 9.88844 11.8914 9.70216 12.4502L9.27027 13.7459L10.3024 14.778L11.5981 14.3461C12.1569 14.1598 12.3768 14.0851 12.5806 13.988C12.8322 13.8681 13.0701 13.7211 13.2899 13.5497C13.4678 13.4109 13.633 13.2475 14.0495 12.831L19.1049 7.77555Z"
+                                                        fill="#1C274C" />
+                                                </svg>
+                                            </button>
+                                            <button class="p-1">
+                                                <svg class="w-6 h-6" viewBox="0 0 24 25" fill="none"
+                                                    xmlns="http://www.w3.org/2000/svg">
+                                                    <path fill-rule="evenodd" clip-rule="evenodd"
+                                                        d="M10.3094 2.39516H13.6908C13.9072 2.39502 14.0957 2.3949 14.2737 2.42333C14.977 2.53563 15.5856 2.97429 15.9146 3.60598C15.9978 3.76587 16.0573 3.94475 16.1256 4.15008L16.2373 4.48498C16.2562 4.54167 16.2616 4.55772 16.2661 4.57036C16.4413 5.05447 16.8953 5.38173 17.4099 5.39478C17.4235 5.39512 17.44 5.39518 17.5001 5.39518H20.5001C20.9143 5.39518 21.2501 5.73096 21.2501 6.14518C21.2501 6.55939 20.9143 6.89518 20.5001 6.89518H3.5C3.08579 6.89518 2.75 6.55939 2.75 6.14518C2.75 5.73096 3.08579 5.39518 3.5 5.39518H6.50008C6.56013 5.39518 6.5767 5.39512 6.59023 5.39478C7.10488 5.38173 7.55891 5.0545 7.73402 4.57038C7.73863 4.55765 7.74392 4.54195 7.76291 4.48498L7.87452 4.1501C7.94281 3.94478 8.00233 3.76587 8.08559 3.60598C8.41453 2.97429 9.02313 2.53563 9.72643 2.42333C9.90445 2.3949 10.093 2.39502 10.3094 2.39516ZM9.00815 5.39518C9.05966 5.29416 9.10531 5.18918 9.14458 5.08062C9.1565 5.04765 9.1682 5.01256 9.18322 4.96748L9.28302 4.66806C9.37419 4.39455 9.39519 4.33877 9.41601 4.29878C9.52566 4.08821 9.72853 3.942 9.96296 3.90456C10.0075 3.89745 10.067 3.89518 10.3553 3.89518H13.6448C13.9331 3.89518 13.9927 3.89745 14.0372 3.90456C14.2716 3.942 14.4745 4.08821 14.5842 4.29878C14.605 4.33877 14.626 4.39454 14.7171 4.66806L14.8169 4.9673L14.8556 5.08064C14.8949 5.18919 14.9405 5.29416 14.992 5.39518H9.00815Z"
+                                                        fill="#F98182" />
+                                                    <path
+                                                        d="M5.91512 8.59528C5.88757 8.18198 5.53019 7.86928 5.11689 7.89683C4.7036 7.92438 4.39089 8.28176 4.41844 8.69506L4.88189 15.6468C4.96739 16.9295 5.03645 17.9656 5.19842 18.7787C5.36682 19.624 5.65324 20.3301 6.24483 20.8836C6.83643 21.437 7.55998 21.6759 8.41463 21.7876C9.23665 21.8952 10.275 21.8952 11.5606 21.8951H12.4395C13.7251 21.8952 14.7635 21.8952 15.5856 21.7876C16.4402 21.6759 17.1638 21.437 17.7554 20.8836C18.347 20.3301 18.6334 19.624 18.8018 18.7787C18.9638 17.9657 19.0328 16.9295 19.1183 15.6468L19.5818 8.69506C19.6093 8.28176 19.2966 7.92438 18.8833 7.89683C18.47 7.86928 18.1126 8.18198 18.0851 8.59528L17.6251 15.4944C17.5353 16.8422 17.4713 17.78 17.3307 18.4857C17.1943 19.1701 17.004 19.5324 16.7306 19.7882C16.4572 20.044 16.083 20.2098 15.391 20.3003C14.6776 20.3936 13.7376 20.3951 12.3868 20.3951H11.6134C10.2626 20.3951 9.32258 20.3936 8.60918 20.3003C7.91718 20.2098 7.54302 20.044 7.26961 19.7882C6.9962 19.5324 6.80586 19.1701 6.66951 18.4857C6.52895 17.78 6.46492 16.8422 6.37506 15.4944L5.91512 8.59528Z"
+                                                        fill="#F98182" />
+                                                    <path
+                                                        d="M9.42543 10.3989C9.83759 10.3576 10.2052 10.6584 10.2464 11.0705L10.7464 16.0705C10.7876 16.4827 10.4869 16.8502 10.0747 16.8914C9.66253 16.9326 9.295 16.6319 9.25378 16.2198L8.75378 11.2198C8.71257 10.8076 9.01328 10.4401 9.42543 10.3989Z"
+                                                        fill="#F98182" />
+                                                    <path
+                                                        d="M14.5747 10.3989C14.9869 10.4401 15.2876 10.8076 15.2464 11.2198L14.7464 16.2198C14.7052 16.6319 14.3376 16.9326 13.9255 16.8914C13.5133 16.8502 13.2126 16.4827 13.2538 16.0705L13.7538 11.0705C13.795 10.6584 14.1626 10.3576 14.5747 10.3989Z"
+                                                        fill="#F98182" />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="pb-4 rounded-2xl bg-slate-200 shadow-[0px_0px_4px_rgba(0,0,0,0.25)]">
+            <div class="rounded-2xl bg-slate-200 shadow-[0px_0px_4px_rgba(0,0,0,0.25)]">
                 <div class="bg-[#E8EBF2] rounded-xl overflow-hidden shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)]">
                     <div class="flex justify-between max-w-4xl p-2 bg-[#D1D8E7] rounded-t-lg">
                         <h2 class="text-lg font-semibold text-gray-800 mb-1">
@@ -197,9 +199,7 @@ const levelist = ref([
                         </h2>
                         <button
                             class="text-white rounded-lg w-[140px] px-4 py-2 bg-slate-600 h-[40px] hover:bg-slate-700 focus:outline-none focus:ring-2  focus:ring-blue-400"
-                            @click="opennewlevel = true" style="background-color: #3D548D;"
-                            onmouseover="this.style.backgroundColor='#2A4A6A'"
-                            onmouseout="this.style.backgroundColor='#3D548D'">
+                            @click="opennewlevel = true" style="background-color: #3D548D;">
                             New Level
                         </button>
                     </div>
@@ -208,18 +208,17 @@ const levelist = ref([
                         <div class="max-h-[320px]">
                             <table class="min-w-full border-separate" style="border-spacing: 0 10px;">
                                 <tbody class="overflow-y-auto rounded-lg">
-                                    <tr v-for="(row, index) in levelist" :key="index"
+                                    <tr v-for="(lev) in levels" :key="lev.id"
                                         class="bg-[#FFFFFF] hover:bg-[#939BAD] text-center text-md text-gray-800">
                                         <td class="py-3 px-4 border-l border-t border-b border-[#939BAD] rounded-l-lg">
-                                            {{
-                                                row.id }}
+                                            {{ lev.id }}
                                         </td>
-                                        <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ row.level }}
+                                        <td class="py-2 px-4 border-t border-b border-[#939BAD]">
+                                            {{ lev.level_name }}
                                         </td>
-                                        <td class="py-2 px-4  border-t border-b border-[#939BAD] ">{{
-                                            row.price }}</td>
+
                                         <td class="py-2 px-4 border-r border-t border-b border-[#939BAD] rounded-r-lg">
-                                            <button class="p-1" @click="openupdatelevel = true">
+                                            <button class="p-1" @click="levelId = lev.id; updatelevel = true">
                                                 <svg class="w-6 h-6" viewBox="0 0 24 25" fill="none"
                                                     xmlns="http://www.w3.org/2000/svg">
                                                     <path fill-rule="evenodd" clip-rule="evenodd"
@@ -268,7 +267,7 @@ const levelist = ref([
         role="dialog" aria-labelledby="modal-title">
         <!-- Overlay -->
         <div class="absolute w-full h-full backdrop-blur-md" @click="updateclass = false" aria-hidden="true"></div>
-        <UpdateClass />
+        <UpdateClass v-if="updateclass" :id="classId" @updated="fetchAll" @close="updateclass = false" />
 
 
 
@@ -283,7 +282,7 @@ const levelist = ref([
         role="dialog" aria-labelledby="modal-title">
         <!-- Overlay -->
         <div class="absolute w-full h-full backdrop-blur-md" @click="updatelanguage = false" aria-hidden="true"></div>
-        <Updatelanguage />
+        <UpdateLanguage v-if="updatelanguage" :id="languageId" @updated="fetchAll" @close="updatelanguage = false" />
     </div>
     <div :class="['modal', { 'opacity-0 pointer-events-none': !opennewlevel }, 'z-50 fixed w-full h-full top-0 left-0 flex items-center justify-center']"
         role="dialog" aria-labelledby="modal-title">
@@ -291,11 +290,11 @@ const levelist = ref([
         <div class="absolute w-full h-full backdrop-blur-md" @click="opennewlevel = false" aria-hidden="true"></div>
         <NewLevel />
     </div>
-    <div :class="['modal', { 'opacity-0 pointer-events-none': !openupdatelevel }, 'z-50 fixed w-full h-full top-0 left-0 flex items-center justify-center']"
+    <div :class="['modal', { 'opacity-0 pointer-events-none': !updatelevel }, 'z-50 fixed w-full h-full top-0 left-0 flex items-center justify-center']"
         role="dialog" aria-labelledby="modal-title">
         <!-- Overlay -->
-        <div class="absolute w-full h-full backdrop-blur-md" @click="openupdatelevel = false" aria-hidden="true"></div>
-        <UpdateLevel />
+        <div class="absolute w-full h-full backdrop-blur-md" @click="updatelevel = false" aria-hidden="true"></div>
+        <UpdateLevel v-if="updatelevel" :id="levelId" @updated="fetchAll" @close="updatelevel = false" />
     </div>
 </template>
 <style>

@@ -34,41 +34,43 @@
                         <!-- Row 1 -->
                     </div>
                     <div class="grid grid-cols-1 pr-3 pl-3 md:grid-cols-3 gap-4 ">
-                        <input v-model="teacher.firstName" id="First Name" type="text"
+                        <input v-model="teacher.firstName" id="first-name" type="text"
                             class="w-full py-1.5 px-3 border border-b-1 rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
                             placeholder="First Name" required />
-                        <input v-model="teacher.lastName" id="Last Name" type="text"
+                        <input v-model="teacher.lastName" id="last-name" type="text"
                             class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
                             placeholder="Last Name" required />
-
-                        <input id="date" type="date"
+                        <input v-model="teacher.birth_date" id="date" type="date"
                             class="w-full py-1.5 px-3 border text-gray-600 rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
                             required />
                     </div>
                     <!-- Row 2 -->
                     <div class="grid grid-cols-1 pr-3 pl-3 md:grid-cols-3 gap-4">
-                        <input id="city" type="text"
+                        <input v-model="teacher.city" id="city" type="text"
                             class="w-full py-1.5 px-3 border rounded-lg  focus:ring-[#3D548D] focus:border-[#3D548D]"
                             placeholder="City/Town" required />
-                        <input id="street" type="text"
+                        <input v-model="teacher.street" id="street" type="text"
                             class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
                             placeholder="Street" required />
-                        <select id="gender"
+                        <select v-model="teacher.gender" id="gender"
                             class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
                             required>
-                            <option value="" disabled selected>Select Gender</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
+                            <option disabled value="">Select Gender</option>
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
                         </select>
                     </div>
                     <!-- Row 3 -->
                     <div class="grid grid-cols-1 pr-3 pl-3 pb-3 md:grid-cols-3 gap-4">
-                        <input id="phone1" type="text"
+                        <input v-model="teacher.phone_number" id="phone1" type="text"
                             class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
                             placeholder="Phone Number 1" required />
-                        <input id="phone2" type="text"
+                        <input v-model="teacher.phone_number2" id="phone2" type="text"
                             class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
-                            placeholder="Phone Number 2" required />
+                            placeholder="Phone Number 2" />
+                        <input v-model="teacher.email" id="email" type="email"
+                            class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
+                            placeholder="email" required />
                     </div>
                 </div>
 
@@ -84,10 +86,9 @@
                     <div v-for="(link, index) in links" :key="index" class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4">
                         <input type="text" v-model="link.name"
                             class="w-full py-1.5 px-3 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
-                            placeholder="Search" required />
+                            placeholder="Search" />
                         <select v-model="link.relation"
-                            class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
-                            required>
+                            class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]">
                             <option value="" disabled>Select Relation</option>
                             <option value="father">Father</option>
                             <option value="mother">Mother</option>
@@ -118,8 +119,7 @@
                         class="grid grid-cols-1 pr-3 pl-3 pb-3 md:grid-cols-3 gap-4">
                         <!-- Row 1 -->
                         <select id="timepre" v-model="language.language"
-                            class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
-                            required>
+                            class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]">
                             <option value="" disabled selected>Time Preferences</option>
                             <option value="time 1">Time 1</option>
                             <option value="time 2">Time 2</option>
@@ -148,8 +148,7 @@
                         class="grid grid-cols-1 pr-3 pl-3 pb-3 md:grid-cols-3 gap-4">
                         <!-- Row 1 -->
                         <select id="timepre" v-model="tutoring.tutoring"
-                            class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
-                            required>
+                            class="w-full py-1.5 px-3 text-gray-600 border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]">
                             <option value="" disabled selected>Tutoring</option>
                             <option value="time 1">Time 1</option>
                             <option value="time 2">Time 2</option>
@@ -169,12 +168,10 @@
                 </div>
 
                 <div class="flex px-4 py-4 space-x-4 overflow-x-auto bg-[#E8EBF2] rounded-md justify-end">
-                    <button
-                    @click.prevent="submitTeacher"
+                    <button @click.prevent="submitTeacher"
                         class="px-4 py-2 bg-[#3D548D] font-medium tracking-wide text-white transition-colors duration-200 transform rounded-lg hover:bg-indigo-500 focus:outline-none focus:bg-indigo-500">
                         Save
                     </button>
-
                 </div>
 
 
@@ -220,24 +217,36 @@ export default {
         this.tutorings.push({ tutoring: '' });
       }
     },
-    async submitTeacher() {
-    try {
-      const token = localStorage.getItem('access_token')
-      const response = await axios.post('http://localhost:8000/api/teachers/', {
-        first_name: this.teacher.firstName,
-        last_name: this.teacher.lastName,
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-      alert('Teacher added successfully!')
-      this.$emit('teacher-added') // optional: emit to parent to refresh
-    } catch (error) {
-      console.error('Error saving teacher:', error.response?.data || error.message)
-      alert('Failed to save teacher')
-    }
+async submitTeacher() {
+  try {
+    const token = localStorage.getItem('access_token');
+    const response = await axios.post('http://localhost:8000/api/teachers/', {
+      first_name: this.teacher.firstName,
+      last_name: this.teacher.lastName,
+      birth_date: this.teacher.birth_date,
+      city: this.teacher.city,
+      street: this.teacher.street,
+      phone_number: this.teacher.phone_number,
+      phone_number2: this.teacher.phone_number2,
+      email: this.teacher.email,
+      gender: this.teacher.gender,
+      hourly_rate: this.teacher.hourly_rate, // include this if required
+      language: this.teacher.language,       // boolean
+      tutoring: this.teacher.tutoring        // boolean
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    alert('Teacher added successfully!');
+    this.$emit('teacher-added'); // optional event to parent
+  } catch (error) {
+    console.error('Error saving teacher:', error.response?.data || error.message);
+    alert('Failed to save teacher');
+  }
 },
+
   }
 
 };

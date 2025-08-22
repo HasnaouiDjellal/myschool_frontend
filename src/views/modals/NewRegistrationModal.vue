@@ -1,19 +1,36 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, defineProps, defineEmits } from 'vue'
 
-// Modal and Form State
-const open = ref(false);
-const activeForm = ref('form1');
-const selectedComponent = ref("");
+// Registration components
+import RegularComponent from '../RegistrationHub/RegularComponent.vue'
+import OnlineComponent from '../RegistrationHub/OnlineComponent.vue'
+import VIPComponent from '../RegistrationHub/VIPComponent.vue'
+import TutoringComponent from '../RegistrationHub/TutoringComponent.vue'
+import EnrolledRegularComponent from '../RegistrationHub/EnrolledRegularComponent.vue'
+import EnrolledVIPComponent from '../RegistrationHub/EnrolledVIPComponent.vue'
+import EnrolledTutoringComponent from '../RegistrationHub/EnrolledTutoringComponent.vue'
+import EnrolledOnlineComponent from '../RegistrationHub/EnrolledOnlineComponent.vue'
 
-// Set Active Form Function
-const setActiveForm = (form) => {
-  activeForm.value = form;
-};
+// Props & Emits
+const props = defineProps({
+  open: Boolean,
+  selectedComponent: {
+    type: String,
+    default: 'regular'
+  }
+})
+const emit = defineEmits(['close'])
 
-// Dropdown State
-const dropdownOpen = ref(false);
+// Reactive State
+const activeForm = ref('form1')
+const currentComponent = ref(props.selectedComponent)
 
+watch(() => props.selectedComponent, (val) => {
+  currentComponent.value = val
+})
+
+const setActiveForm = (form) => activeForm.value = form
+const closeModal = () => emit('close')
 // Table State
 const rows = ref([
   {
@@ -77,21 +94,19 @@ const openModal = () => {
         <!-- Form Switcher -->
         <div class="inline-flex bg-white p-1 rounded-lg w-full sm:w-auto">
           <button @click="setActiveForm('form1')"
-            :class="['px-4 py-2 text-sm font-medium w-1/2 sm:w-32 rounded-lg transition', activeForm === 'form1' ? 'bg-[#3D548D] text-white' : 'bg-white text-[#22305C]']">
+            :class="[activeForm === 'form1' ? 'bg-[#3D548D] text-white' : 'text-[#22305C]', 'px-3 py-1 text-sm rounded-lg']">
             New Student
           </button>
           <button @click="setActiveForm('form2')"
-            :class="['px-4 py-2 text-sm font-medium w-1/2 sm:w-32 rounded-lg transition', activeForm === 'form2' ? 'bg-[#3D548D] text-white' : 'bg-white text-[#22305C]']">
+            :class="[activeForm === 'form2' ? 'bg-[#3D548D] text-white' : 'text-[#22305C]', 'px-3 py-1 text-sm rounded-lg']">
             Enrolled
           </button>
         </div>
 
         <!-- Dropdown -->
         <div class="w-full sm:w-auto">
-          <select
-            class="w-full sm:w-36 text-sm text-[#22305C] font-medium rounded-lg px-4 py-2 bg-[#F7F8FA] border border-[#22305C] focus:ring-0"
-            id="dropdown" v-model="selectedComponent">
-            <option value="">Select</option>
+          <select v-model="currentComponent"
+            class="w-full sm:w-36 text-sm text-[#22305C] font-medium rounded-lg px-4 py-2 bg-[#F7F8FA] border border-[#22305C] focus:ring-0">
             <option value="regular">Regular</option>
             <option value="vip">VIP</option>
             <option value="tutoring">Tutoring</option>
@@ -101,7 +116,7 @@ const openModal = () => {
 
         <!-- Close Button -->
         <button class="text-gray-500 hover:text-gray-700 focus:outline-none w-full sm:w-auto flex justify-end"
-          @click="open = false">
+          @click="closeModal">
           <svg class="w-8 h-8 mx-auto sm:mx-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M16.7171 14.9494C16.229 14.4612 15.4375 14.4612 14.9494 14.9494C14.4612 15.4375 14.4612 16.229 14.9494 16.7171L18.2321 19.9999L14.9494 23.2828C14.4612 23.7708 14.4612 24.5623 14.9494 25.0504C15.4375 25.5386 16.229 25.5386 16.7171 25.0504L20 21.7678L23.2826 25.0504C23.7708 25.5386 24.5623 25.5386 25.0505 25.0504C25.5386 24.5623 25.5386 23.7708 25.0505 23.2826L21.7676 19.9999L25.0505 16.7171C25.5386 16.229 25.5386 15.4376 25.0505 14.9494C24.5623 14.4612 23.7708 14.4612 23.2826 14.9494L20 18.2321L16.7171 14.9494Z"
@@ -117,27 +132,16 @@ const openModal = () => {
       <div class="max-w-4xl mx-auto bg-[#E8EBF2] border rounded-lg">
         <!-- Form 1 -->
 
-        <form v-if="activeForm === 'form1'" class="space-y-4">
+        <form class="space-y-4" v-if="activeForm === 'form1'">
           <div class="space-y-4 shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)] text-[#22305C] rounded-lg">
-            <RegularComponent v-if="selectedComponent === 'regular'" />
-            <TutoringComponent v-if="selectedComponent === 'tutoring'" />
-            <OnlineComponent v-if="selectedComponent === 'online'" />
-            <VIPComponent v-if="selectedComponent === 'vip'" />
+            <component :is="getNewComponent(currentComponent)" />
           </div>
-
-
-
         </form>
 
-        <!-- Form 2 -->
-        <form v-else class="space-y-4">
+        <form class="space-y-4" v-else>
           <div class="space-y-4 shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)] text-[#22305C] rounded-lg">
-            <EnrolledRegularComponent v-if="selectedComponent === 'regular'" />
-            <EnrolledVIPComponent v-if="selectedComponent === 'vip'" />
-            <EnrolledTutoringComponent v-if="selectedComponent === 'tutoring'" />
-            <EnrolledOnlineComponent v-if="selectedComponent === 'online'" />
+            <component :is="getEnrolledComponent(currentComponent)" />
           </div>
-
         </form>
       </div>
 
@@ -145,33 +149,25 @@ const openModal = () => {
   </div>
 </template>
 <script>
-import RegularComponent from "../RegistrationHub/RegularComponent.vue";
-import OnlineComponent from "../RegistrationHub/OnlineComponent.vue";
-import VIPComponent from "../RegistrationHub/VIPComponent.vue";
-import TutoringComponent from "../RegistrationHub/TutoringComponent.vue";
-import EnrolledRegularComponent from "../RegistrationHub/EnrolledRegularComponent.vue";
-import EnrolledVIPComponent from "../RegistrationHub/EnrolledVIPComponent.vue";
-import EnrolledTutoringComponent from "../RegistrationHub/EnrolledTutoringComponent.vue";
-import EnrolledOnlineComponent from '../RegistrationHub/EnrolledOnlineComponent.vue';
+// Utility to dynamically return components based on selection
+function getNewComponent(type) {
+  return {
+    regular: RegularComponent,
+    vip: VIPComponent,
+    tutoring: TutoringComponent,
+    online: OnlineComponent
+  }[type] || RegularComponent
+}
 
-export default {
-  components: {
-    RegularComponent,
-    VIPComponent,
-    TutoringComponent,
-    OnlineComponent,
-    EnrolledRegularComponent,
-    EnrolledVIPComponent,
-    EnrolledTutoringComponent,
-  },
-  data() {
-    return {
-      selectedComponent: "", // Tracks dropdown selection
-    };
-  },
-};
+function getEnrolledComponent(type) {
+  return {
+    regular: EnrolledRegularComponent,
+    vip: EnrolledVIPComponent,
+    tutoring: EnrolledTutoringComponent,
+    online: EnrolledOnlineComponent
+  }[type] || EnrolledRegularComponent
+}
 </script>
-
 
 <style>
 .modal {

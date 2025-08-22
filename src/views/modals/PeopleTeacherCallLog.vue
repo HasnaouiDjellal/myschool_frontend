@@ -1,41 +1,79 @@
 <script setup>
-import { ref } from 'vue';
-const open = ref(false);
-const rows = ref([
-  {
-    id: "1",
-    admin: "Raouf Boukhoucha",
-    date: "DD/MM/YYYY",
-    time: "00:00",
-    reason: "New group",
-    comment: "Not Comming",
-  },
-  {
-    id: "2",
-    admin: "Raouf Boukhoucha",
-    date: "DD/MM/YYYY",
-    time: "00:00",
-    reason: "New group",
-    comment: "Not Comming",
-  },
-  {
-    id: "3",
-    admin: "Raouf Boukhoucha",
-    date: "DD/MM/YYYY",
-    time: "00:00",
-    reason: "New group",
-    comment: "Not Comming",
-  },
-  {
-    id: "4",
-    admin: "Raouf Boukhoucha",
-    date: "DD/MM/YYYY",
-    time: "00:00",
-    reason: "New group",
-    comment: "Not Comming",
-  },
+import { onMounted, ref, watch } from 'vue'
+import axios from 'axios'
 
-]);
+const open = ref(false);
+const teacherInfo = ref({})
+const callLogs = ref([])
+
+// Props
+const props = defineProps({
+  teacherId: Number
+});
+
+const newCall = ref({
+  reason: '',
+  comment: ''
+});
+
+
+// Teacher call log data
+const fetchCallLogs = async (id) => {
+  const token = localStorage.getItem('access_token')
+  const res = await axios.get(`http://localhost:8000/api/calllogs/?teacher=${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+  callLogs.value = res.data
+
+  // Teacher Info
+  const res2 = await axios.get(`http://localhost:8000/api/teachers/${id}/`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  teacherInfo.value = res2.data
+}
+
+
+const addCallLog = async () => {
+  const token = localStorage.getItem('access_token');
+
+  if (!newCall.value.reason) {
+    alert("Please select a reason");
+    return;
+  }
+
+  try {
+    await axios.post('http://localhost:8000/api/calllogs/', {
+      teacher: props.teacherId,  // Fixed: using props.teacherId
+      reason: newCall.value.reason,
+      comment: newCall.value.comment,
+    }, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    await fetchCallLogs(props.teacherId);
+    newCall.value = { reason: '', comment: '' };
+    alert("Call log added successfully!");
+  } catch (err) {
+    console.error(err);
+    alert("Failed to add call log. Please try again.");
+  }
+};
+
+
+// Fetch on mount or when prop changes
+watch(() => props.teacherId, (newId) => {
+  if (newId) fetchCallLogs(newId);
+}, { immediate: true });
+
+const selectedRow = ref(null)
+const selectRow = (index) => {
+  selectedRow.value = index
+}
+
 </script>
 
 <template>
@@ -66,7 +104,7 @@ const rows = ref([
       <!-- Form -->
       <form class="space-y-4">
         <div
-          class="space-y-4  shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)] text-[#22305C] rounded-lg overflow-x-auto whitespace-nowrap">
+          class="space-y-4 shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)] text-[#22305C] rounded-lg overflow-x-auto whitespace-nowrap">
           <div class="max-w-6xl p-2 bg-[#D1D8E7] rounded-t-lg">
             <h2 class="text-lg font-semibold text-gray-800 mb-1">
               Teacher Info
@@ -77,22 +115,23 @@ const rows = ref([
             <span class="text-[#22305C] text-md font-bold py-1.5 px-3">Teacher Name</span>
             <input id="amount" type="text"
               class="w-60 py-1.5 px-3 text-center border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
-              placeholder="مسعي أحمد محمد العروسي" disabled required />
+              :value="teacherInfo.first_name + ' ' + teacherInfo.last_name" disabled required />
+
             <span class="text-[#22305C] text-md font-bold py-1.5 px-3">Phone number</span>
             <input id="average" type="text"
               class="w-22 py-1.5 px-3 border text-center rounded-l-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
-              placeholder="06 66 66 66 66" disabled required /><input id="average" type="text"
+              :value="teacherInfo.phone_number" disabled required /><input id="average" type="text"
               class="w-22 py-1.5 px-3 border text-center rounded-r-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
-              placeholder="06 66 66 66 66" disabled required />
+              :value="teacherInfo.phone_number2" disabled required />
           </div>
         </div>
 
         <div class="pb-2 shadow-[0px_0px_3px_1px_rgba(0,0,0,0.1)] text-[#22305C] rounded-lg">
           <div class="w-full rounded-lg ">
             <!-- Scrollable Container -->
-            <div class="overflow-y-auto h-36 rounded-lg">
+            <div class="overflow-y-auto h-72 rounded-lg">
               <!-- Table body for scrolling -->
-              <table class="w-full border-separate" style="border-spacing: 0 10px;">
+              <table class="w-full" style="border-collapse: separate; border-spacing: 0 10px;">
                 <thead class="bg-[#D1D8E7] rounded-lg">
                   <tr class="text-left text-[#22305C] rounded-l-lg">
                     <th class="p-2 border-b border-[#D1D8E7] text-center sticky top-0 bg-[#D1D8E7]"></th>
@@ -103,24 +142,23 @@ const rows = ref([
                     <th class="p-2 border-b border-[#D1D8E7] text-center sticky top-0 bg-[#D1D8E7]">Comment</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr v-for="(item, index) in rows" :key="index" @click="selectRow(index)" :class="[
+                <tbody class="w-full">
+                  <tr v-for="(item, index) in callLogs" :key="index" @click="selectRow(index)" :class="[
                     'cursor-pointer',
-                    selectedRow === index ? 'bg-[#939BAD] text-white' : '',
-                    'hover:bg-gray-300'
+                    'hover:bg-[#D1D8E7]'
                   ]" class="even:bg-[#D1D8E7] odd:bg-[#FFFFFF] hover:bg-[#939BAD] text-center text-[#22305C]">
-                    <td class="py-2 px-4 rounded-l-lg border-l border-t border-b border-[#939BAD]">{{ item.id }}</td>
-                    <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ item.admin }}</td>
-                    <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ item.date }}</td>
-                    <td class="py-2 px-4 border-t border-b border-[#939BAD]">{{ item.time }}</td>
-                    <td class="py-2 px-4 border-t border-b border-[#939BAD]">
+                    <td class="p-2 border-b border-[#D1D8E7] text-center">{{ item.id }}</td>
+                    <td class="p-2 border-b border-[#D1D8E7] text-center">{{ item.admin_name }}</td>
+                    <td class="p-2 border-b border-[#D1D8E7] text-center">{{ item.date }}</td>
+                    <td class="p-2 border-b border-[#D1D8E7] text-center">{{ item.time }}</td>
+                    <td class="p-2 border-b border-[#D1D8E7] text-center">
                       <input id="reason" type="text"
-                        class="py-1.5 px-3 text-center border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
+                        class="py-1.5 px-3 text-center border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D] w-full"
                         placeholder="{{ item.reason }}" :value=item.reason disabled />
                     </td>
-                    <td class="py-2 px-4 rounded-r-lg border-r border-t border-b border-[#939BAD]">
+                    <td class="p-2 border-b border-[#D1D8E7] text-center">
                       <input id="reason" type="text"
-                        class="py-1.5 px-3 text-center border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
+                        class="py-1.5 px-3 text-center border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D] w-full"
                         :value=item.comment disabled />
                     </td>
                   </tr>
@@ -128,18 +166,11 @@ const rows = ref([
               </table>
             </div>
           </div>
-
-
-
         </div>
 
 
-
-
-
-
         <div class="flex px-4 py-4 space-x-4 overflow-x-auto bg-[#E8EBF2] rounded-md justify-center">
-          <select id="slecrelation"
+          <select v-model="newCall.reason"
             class="w-40 py-1.5 px-2 text-[#22305C] text-left border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
             required>
             <option value="" disabled selected>Select Reason</option>
@@ -149,10 +180,10 @@ const rows = ref([
             <option class="text-left" value="reason4">Reason 4</option>
 
           </select>
-          <input id="reason" type="text"
+          <input v-model="newCall.comment" type="text"
             class="w-40 y-1.5 px-2 text-left text-[#22305C] border rounded-lg focus:ring-[#3D548D] focus:border-[#3D548D]"
             placeholder="Comment" />
-          <button
+          <button @click.prevent="addCallLog"
             class="px-4 py-2 bg-[#3D548D] font-medium tracking-wide text-white transition-colors duration-200 transform rounded-lg hover:bg-indigo-500 focus:outline-none focus:bg-indigo-500">
             Save
           </button>

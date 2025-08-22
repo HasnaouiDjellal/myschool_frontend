@@ -1,5 +1,7 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, watch } from 'vue';
+import axios from 'axios';
+
 // Modal and Form State
 const open = ref(false);
 const openstaff = ref(false);
@@ -7,7 +9,31 @@ const isModalOpen = ref(false);
 const selectedRowData = ref(null);
 const openavailability = ref(false);
 
+const props = defineProps({
+  teacherId: {
+    type: [Number, String],
+    required: true,
+  }
+})
+const teacherData = ref(null)
 
+watch(
+  () => props.teacherId,
+  async (newId) => {
+    if (newId) {
+      try {
+        const token = localStorage.getItem('access_token')
+        const response = await axios.get(`http://localhost:8000/api/teachers/${newId}/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        teacherData.value = response.data
+      } catch (error) {
+        console.error('Failed to load teacher:', error)
+      }
+    }
+  },
+  { immediate: true }
+)
 
 
 </script>
@@ -100,19 +126,21 @@ const openavailability = ref(false);
           <div class="h-14 p-3 bg-[#E5D6F1] rounded-t-lg">
             <h2 class="text-[#22305C] text-xl font-semibold">Teacher Info</h2>
           </div>
-          <div class="space-y-2 p-2 max-h-[454px] overflow-y-auto">
-            <input type="text" placeholder="First Name" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md">
-            <input type="text" placeholder="Last Name" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md">
-            <input type="date" placeholder="DD/MM/YYYY" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md">
-            <input type="text" placeholder="City / Town" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md">
-            <input type="text" placeholder="Street" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md">
-            <select class="w-full p-2 border-b-1 border-[#939BAD] rounded-md">
-              <option>Select Gender</option>
-              <!-- Options -->
+          <div v-if="teacherData" class="space-y-2 p-2 max-h-[454px] overflow-y-auto">
+            <input type="text" :value="teacherData.first_name"
+              class="w-full p-2 border-b-1 border-[#939BAD] rounded-md " disabled>
+            <input type="text" :value="teacherData.last_name" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md" disabled>
+            <input type="date" :value="teacherData.birth_date" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md" disabled>
+            <input type="text" :value="teacherData.city" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md" disabled>
+            <input type="text" :value="teacherData.street" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md" disabled>
+            <select class="w-full p-2 border-b-1 border-[#939BAD] rounded-md" :value="teacherData.gender" disabled>
+              <option disabled value="">Gender</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
             </select>
-            <input type="text" placeholder="Phone Number 1" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md">
-            <input type="text" placeholder="Phone Number 2" class="w-full p-2 border-b-1 border-[#939BAD] rounded-s">
-            <input type="text" placeholder="Parent Name" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md">
+            <input type="text" :value="teacherData.phone_number" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md" disabled>
+            <input type="text" :value="teacherData.phone_number2" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md" disabled>
+            <input type="text" :value="teacherData.email" class="w-full p-2 border-b-1 border-[#939BAD] rounded-md" disabled>
           </div>
         </div>
 
@@ -380,7 +408,6 @@ const openavailability = ref(false);
 
     <TeacherAvailability />
   </div>
-
 
 </template>
 
